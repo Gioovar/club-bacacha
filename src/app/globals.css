@@ -1,0 +1,408 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   CLUB BACACHÁ — Design System
+   Negro profundo, blanco roto, grises. La fotografía aporta el color.
+   ========================================================================== */
+
+@theme {
+  --color-ink: #050505;
+  --color-coal: #0b0b0b;
+  --color-graphite: #161616;
+  --color-smoke: #262626;
+  --color-ash: #8c8a85;
+  --color-fog: #b9b6b0;
+  --color-bone: #ece8e1;
+  --color-paper: #f6f4ef;
+  --color-signal: #e8dcc6; /* placeholder acento cálido — se redefine con identidad oficial */
+
+  --font-display: var(--font-anton), "Impact", "Arial Narrow", sans-serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  --ease-cine: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-kenburns: kenburns 22s ease-in-out infinite alternate;
+  --animate-scrollcue: scrollcue 2.4s var(--ease-cine) infinite;
+
+  @keyframes marquee {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+  @keyframes kenburns {
+    from { transform: scale(1.04) translate3d(0, 0, 0); }
+    to { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
+  }
+  @keyframes scrollcue {
+    0% { transform: scaleY(0); transform-origin: top; }
+    45% { transform: scaleY(1); transform-origin: top; }
+    55% { transform: scaleY(1); transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+}
+
+/* ---------- Base ---------- */
+@layer base {
+  html {
+    background: var(--color-ink);
+    color: var(--color-bone);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+  }
+  ::selection {
+    background: var(--color-bone);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-bone);
+    outline-offset: 3px;
+  }
+  img {
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  /* Anchor offset for the fixed header */
+  [id] {
+    scroll-margin-top: 72px;
+  }
+}
+
+/* ---------- Typography ---------- */
+@layer components {
+  .display {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    line-height: 0.86;
+    letter-spacing: -0.005em;
+    font-weight: 400;
+  }
+  .t-mega {
+    font-size: clamp(4.2rem, 21vw, 17rem);
+  }
+  .t-giant {
+    font-size: clamp(3.4rem, 15vw, 12rem);
+  }
+  .t-xl {
+    font-size: clamp(2.6rem, 10vw, 7.5rem);
+  }
+  .t-lg {
+    font-size: clamp(2.1rem, 7vw, 4.75rem);
+  }
+  .t-md {
+    font-size: clamp(1.6rem, 4.4vw, 2.8rem);
+  }
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--color-fog);
+  }
+  .serif-accent {
+    font-family: var(--font-serif);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: -0.01em;
+  }
+  .text-outline {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(236, 232, 225, 0.55);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 3.5rem;
+    padding: 0 1.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    isolation: isolate;
+    overflow: hidden;
+    transition: color 0.5s var(--ease-cine), border-color 0.5s var(--ease-cine);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.55s var(--ease-cine);
+  }
+  .btn:hover::before,
+  .btn:focus-visible::before {
+    transform: scaleY(1);
+  }
+  .btn-primary {
+    background: var(--color-bone);
+    color: var(--color-ink);
+  }
+  .btn-primary::before {
+    background: var(--color-ink);
+  }
+  .btn-primary:hover,
+  .btn-primary:focus-visible {
+    color: var(--color-bone);
+    box-shadow: inset 0 0 0 1px var(--color-bone);
+  }
+  .btn-ghost {
+    color: var(--color-bone);
+    box-shadow: inset 0 0 0 1px rgba(236, 232, 225, 0.35);
+  }
+  .btn-ghost::before {
+    background: var(--color-bone);
+  }
+  .btn-ghost:hover,
+  .btn-ghost:focus-visible {
+    color: var(--color-ink);
+  }
+  .btn[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .link-line {
+    position: relative;
+    display: inline-block;
+  }
+  .link-line::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.2em;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.5s var(--ease-cine);
+  }
+  .link-line:hover::after,
+  .link-line:focus-visible::after,
+  .link-line[aria-current="true"]::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  /* ---------- Form fields (editorial underline) ---------- */
+  .field {
+    position: relative;
+    display: block;
+  }
+  .field-label {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--color-fog);
+    margin-bottom: 0.35rem;
+  }
+  .field-input {
+    width: 100%;
+    min-height: 3.25rem;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(236, 232, 225, 0.25);
+    border-radius: 0;
+    padding: 0.5rem 0;
+    font-size: 1.125rem; /* ≥16px evita zoom en iOS */
+    color: var(--color-bone);
+    transition: border-color 0.35s ease;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field-input::placeholder {
+    color: rgba(236, 232, 225, 0.28);
+  }
+  .field-input:focus {
+    outline: none;
+    border-bottom-color: var(--color-bone);
+  }
+  .field-input:focus-visible {
+    outline: none;
+  }
+  .field-input[aria-invalid="true"] {
+    border-bottom-color: #d98c7a;
+  }
+  .field-input[type="date"] {
+    color-scheme: dark;
+  }
+  .field-error {
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    color: #e3a594;
+  }
+
+  .check {
+    display: flex;
+    gap: 0.9rem;
+    align-items: flex-start;
+    cursor: pointer;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--color-fog);
+  }
+  .check input {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-top: 0.1rem;
+    border: 1px solid rgba(236, 232, 225, 0.45);
+    display: grid;
+    place-content: center;
+    transition: background 0.25s ease, border-color 0.25s ease;
+  }
+  .check input::after {
+    content: "";
+    width: 0.6rem;
+    height: 0.35rem;
+    border-left: 2px solid var(--color-ink);
+    border-bottom: 2px solid var(--color-ink);
+    transform: rotate(-45deg) translate(1px, -1px) scale(0);
+    transition: transform 0.25s var(--ease-out-expo);
+  }
+  .check input:checked {
+    background: var(--color-bone);
+    border-color: var(--color-bone);
+  }
+  .check input:checked::after {
+    transform: rotate(-45deg) translate(1px, -1px) scale(1);
+  }
+  .check input:focus-visible {
+    outline: 2px solid var(--color-bone);
+    outline-offset: 3px;
+  }
+}
+
+/* ---------- Utilities ---------- */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .container-x {
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 768px) {
+    .container-x {
+      padding-inline: 2.5rem;
+    }
+  }
+  @media (min-width: 1280px) {
+    .container-x {
+      padding-inline: 3.5rem;
+    }
+  }
+  .h-screen-safe {
+    height: 100vh;
+    height: 100svh;
+  }
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+  .pb-safe {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Cinematic film grain ---------- */
+.grain {
+  pointer-events: none;
+  position: fixed;
+  inset: -50%;
+  z-index: 90;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Motion initial states ----------
+   `motion-ok` lo agrega un script inline sólo si el usuario NO tiene reduced motion.
+   Sin JS o con reduced motion, todo el contenido es visible y estático. */
+.line-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.04em;
+  margin-bottom: -0.04em;
+}
+.line-mask > .line-inner {
+  display: block;
+  will-change: transform;
+}
+html.motion-ok [data-reveal="lines"] .line-inner {
+  transform: translate3d(0, 110%, 0);
+}
+html.motion-ok [data-reveal="fade"] {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+html.motion-ok [data-reveal="image"] {
+  clip-path: inset(100% 0 0 0);
+}
+html.motion-ok [data-reveal="image"] img {
+  transform: scale(1.18);
+}
+
+/* ---------- Age gate visibility (no flash) ---------- */
+html.gate-ok [data-age-gate] {
+  display: none;
+}
+html:not(.gate-ok) body:has([data-age-gate]) {
+  overflow: hidden;
+}
+
+/* ---------- Custom cursor (desktop, fine pointer) ---------- */
+.cursor-dot {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  html.motion-ok .cursor-dot {
+    display: block;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
