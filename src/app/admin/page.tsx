@@ -2,621 +2,407 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BrandLogo } from "@/components/brand/BrandLogo";
+import {
+  Users,
+  TrendingUp,
+  Award,
+  Calendar,
+  Gift,
+  Share2,
+  Cake,
+  Activity,
+  ArrowUpRight,
+  MessageSquare,
+  Sparkles,
+  MapPin,
+  Clock,
+  CheckCircle2,
+} from "lucide-react";
 
-// Initial fallback records for local preview before Supabase is connected
-const INITIAL_MEMBERS = [
-  {
-    id: "1",
-    member_number: "001284",
-    first_name: "Giovanni",
-    last_name: "Vargas",
-    phone: "7441234567",
-    email: "giovanni@bacacha.com",
-    city: "Acapulco",
-    birth_date: "1998-05-14",
-    created_at: "2026-10-17T12:00:00Z",
-    source: "direct",
-    utm_campaign: "playera_qr",
-    referred_by_number: "000104",
-    marketing_consent: true,
-    status: "ACTIVE",
-    membership_level: "VIP",
-  },
-  {
-    id: "2",
-    member_number: "001283",
-    first_name: "Mariana",
-    last_name: "Delgado",
-    phone: "5589123456",
-    email: "mariana.delgado@gmail.com",
-    city: "CDMX",
-    birth_date: "2001-11-20",
-    created_at: "2026-10-17T10:00:00Z",
-    source: "instagram",
-    utm_campaign: "instagram_reels",
-    referred_by_number: "—",
-    marketing_consent: true,
-    status: "ACTIVE",
-    membership_level: "MEMBER",
-  },
-  {
-    id: "3",
-    member_number: "001282",
-    first_name: "Rodrigo",
-    last_name: "Morales",
-    phone: "7774567890",
-    email: "rodrigo.m@outlook.com",
-    city: "Cuernavaca",
-    birth_date: "1995-10-24",
-    created_at: "2026-10-16T18:00:00Z",
-    source: "qr",
-    utm_campaign: "mesa_vip_qr",
-    referred_by_number: "000912",
-    marketing_consent: false,
-    status: "ACTIVE",
-    membership_level: "FOUNDING_MEMBER",
-  },
-];
+interface DashboardData {
+  metrics: {
+    totalMembers: number;
+    todayRegistrations: number;
+    sevenDaysRegistrations: number;
+    thirtyDaysRegistrations: number;
+    growthPercent: number;
+    vipMembersCount: number;
+    eventsCount: number;
+    benefitsCount: number;
+    referralsCount: number;
+    activeRecentlyCount: number;
+    toReactivateCount: number;
+    totalInteractions: number;
+  };
+  cityCounts: Record<string, number>;
+  acquisitionCounts: Record<string, number>;
+  upcomingBirthdays: any[];
+  categoryDistribution: Record<string, number>;
+  dailyRegistrations: { date: string; count: number }[];
+  recentMembers: any[];
+}
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "members" | "events" | "benefits">("dashboard");
-  const [members, setMembers] = useState(INITIAL_MEMBERS);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [cityFilter, setCityFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // New Event Form State
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    name: "",
-    venue: "",
-    event_date: "",
-    event_time: "22:00",
-    description: "",
-  });
-
-  // Fetch real members from API
-  useEffect(() => {
-    fetch("/api/admin/members")
+  const fetchDashboard = () => {
+    setLoading(true);
+    fetch("/api/admin/dashboard")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.members?.length > 0) {
-          setMembers(data.members);
-        }
+      .then((d) => {
+        if (d) setData(d);
       })
-      .catch(() => {});
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
-  const filteredMembers = members.filter((m) => {
-    const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
-    const matchSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.member_number.includes(searchTerm) ||
-      m.phone.includes(searchTerm);
-    const matchCity = cityFilter === "ALL" || m.city === cityFilter;
-    const matchStatus = statusFilter === "ALL" || m.status === statusFilter;
-    return matchSearch && matchCity && matchStatus;
-  });
-
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
+  if (loading && !data) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center space-y-4">
+        <div className="w-8 h-8 border-2 border-neutral-700 border-t-amber-400 rounded-full animate-spin" />
+        <p className="text-xs font-mono tracking-widest text-neutral-400 uppercase">
+          Calculando métricas en tiempo real...
+        </p>
+      </div>
     );
-    try {
-      await fetch("/api/admin/members", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus }),
-      });
-    } catch (err) {
-      console.error(err);
-    }
+  }
+
+  const metrics = data?.metrics || {
+    totalMembers: 0,
+    todayRegistrations: 0,
+    sevenDaysRegistrations: 0,
+    thirtyDaysRegistrations: 0,
+    growthPercent: 0,
+    vipMembersCount: 0,
+    eventsCount: 0,
+    benefitsCount: 0,
+    referralsCount: 0,
+    activeRecentlyCount: 0,
+    toReactivateCount: 0,
+    totalInteractions: 0,
   };
 
-  const exportCSV = () => {
-    const headers = [
-      "Member ID",
-      "Nombre",
-      "Apellido",
-      "WhatsApp",
-      "Email",
-      "Ciudad",
-      "Cumpleaños",
-      "Campaña",
-      "Referido Por",
-      "Marketing",
-      "Nivel",
-      "Estado",
-      "Fecha Registro",
-    ];
-
-    const rows = filteredMembers.map((m) => [
-      `#${m.member_number}`,
-      `"${m.first_name}"`,
-      `"${m.last_name}"`,
-      `"${m.phone}"`,
-      `"${m.email}"`,
-      `"${m.city}"`,
-      `"${m.birth_date}"`,
-      `"${m.utm_campaign || "—"}"`,
-      `"${m.referred_by_number || "—"}"`,
-      m.marketing_consent ? "SÍ" : "NO",
-      m.membership_level,
-      m.status,
-      `"${m.created_at}"`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `club_bacacha_miembros_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const maxDaily = Math.max(1, ...(data?.dailyRegistrations.map((d) => d.count) || [1]));
 
   return (
-    <div className="min-h-screen bg-[#070707] text-bone flex flex-col font-sans">
-      {/* Admin Top Header */}
-      <header className="bg-coal border-b border-bone/10 py-4 px-6 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30">
-        <div className="flex items-center gap-6">
-          <BrandLogo size="sm" />
-          <span className="px-2 py-0.5 rounded bg-bone/10 text-[0.65rem] font-mono tracking-widest text-ash uppercase">
-            ADMIN PANEL · PRODUCCIÓN
-          </span>
+    <div className="space-y-8">
+      {/* Top Banner / Welcome */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+        <div>
+          <h1 className="text-2xl font-serif tracking-tight text-white uppercase">
+            CENTRO DE CONTROL & CRM
+          </h1>
+          <p className="text-xs font-mono text-neutral-400 mt-1">
+            Métricas oficiales y participación en tiempo real · Club Bacachá
+          </p>
         </div>
 
-        <div className="flex items-center gap-6">
-          <nav className="flex items-center gap-4 text-xs tracking-wider uppercase font-mono">
-            <button
-              type="button"
-              onClick={() => setActiveTab("dashboard")}
-              className={`pb-1 border-b-2 transition-colors ${
-                activeTab === "dashboard"
-                  ? "border-bone text-bone"
-                  : "border-transparent text-ash hover:text-bone"
-              }`}
-            >
-              Métricas
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("members")}
-              className={`pb-1 border-b-2 transition-colors ${
-                activeTab === "members"
-                  ? "border-bone text-bone"
-                  : "border-transparent text-ash hover:text-bone"
-              }`}
-            >
-              Miembros ({filteredMembers.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("events")}
-              className={`pb-1 border-b-2 transition-colors ${
-                activeTab === "events"
-                  ? "border-bone text-bone"
-                  : "border-transparent text-ash hover:text-bone"
-              }`}
-            >
-              Eventos
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("benefits")}
-              className={`pb-1 border-b-2 transition-colors ${
-                activeTab === "benefits"
-                  ? "border-bone text-bone"
-                  : "border-transparent text-ash hover:text-bone"
-              }`}
-            >
-              Beneficios
-            </button>
-          </nav>
-
+        <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/"
-            className="text-xs tracking-widest uppercase text-ash hover:text-bone underline ml-4"
+            href="/admin/miembros"
+            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs tracking-wider uppercase transition-colors shadow-lg shadow-amber-400/10 flex items-center gap-1.5"
           >
-            Ver Sitio Web →
+            <Users className="w-3.5 h-3.5" />
+            <span>Gestionar Miembros</span>
+          </Link>
+          <Link
+            href="/admin/fidelizacion"
+            className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs tracking-wider uppercase transition-colors flex items-center gap-1.5"
+          >
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span>Ver Fidelización</span>
           </Link>
         </div>
-      </header>
+      </div>
 
-      {/* Main Admin Workspace */}
-      <main className="flex-1 p-6 sm:p-10 max-w-7xl w-full mx-auto space-y-10">
-        {activeTab === "dashboard" && (
-          <>
-            {/* KPI Cards Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-              <div className="p-6 bg-coal border border-bone/10">
-                <span className="text-[0.65rem] tracking-[0.25em] uppercase text-ash block mb-2">
-                  TOTAL MIEMBROS
-                </span>
-                <span className="display text-4xl sm:text-5xl text-bone">
-                  {members.length}
-                </span>
-                <span className="text-xs text-bone/60 block mt-2 font-mono">
-                  Base de datos activa
-                </span>
-              </div>
-
-              <div className="p-6 bg-coal border border-bone/10">
-                <span className="text-[0.65rem] tracking-[0.25em] uppercase text-ash block mb-2">
-                  ACTIVOS
-                </span>
-                <span className="display text-4xl sm:text-5xl text-bone">
-                  {members.filter((m) => m.status === "ACTIVE").length}
-                </span>
-                <span className="text-xs text-bone/60 block mt-2 font-mono">
-                  Membresías vigentes
-                </span>
-              </div>
-
-              <div className="p-6 bg-coal border border-bone/10">
-                <span className="text-[0.65rem] tracking-[0.25em] uppercase text-ash block mb-2">
-                  CONSENTIMIENTO MKT
-                </span>
-                <span className="display text-4xl sm:text-5xl text-bone">
-                  {members.filter((m) => m.marketing_consent).length}
-                </span>
-                <span className="text-xs text-bone/60 block mt-2 font-mono">
-                  WhatsApp / Correo
-                </span>
-              </div>
-
-              <div className="p-6 bg-coal border border-bone/10">
-                <span className="text-[0.65rem] tracking-[0.25em] uppercase text-ash block mb-2">
-                  VIP / FOUNDERS
-                </span>
-                <span className="display text-4xl sm:text-5xl text-bone">
-                  {members.filter((m) => m.membership_level !== "MEMBER").length}
-                </span>
-                <span className="text-xs text-bone/60 block mt-2 font-mono">
-                  Niveles exclusivos
-                </span>
-              </div>
-            </div>
-
-            {/* Middle Insight Panels */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Ciudades */}
-              <div className="p-6 bg-coal border border-bone/10">
-                <h3 className="display text-xl uppercase mb-4 tracking-tight">
-                  CIUDADES PRINCIPALES
-                </h3>
-                <div className="space-y-3 text-xs font-mono">
-                  <div className="flex items-center justify-between">
-                    <span className="text-bone">Acapulco</span>
-                    <span className="text-ash">
-                      {members.filter((m) => m.city.toLowerCase().includes("acapulco")).length} miembros
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-bone">CDMX</span>
-                    <span className="text-ash">
-                      {members.filter((m) => m.city.toLowerCase().includes("cdmx") || m.city.toLowerCase().includes("méxico")).length} miembros
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cumpleaños Próximos */}
-              <div className="p-6 bg-coal border border-bone/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="display text-xl uppercase tracking-tight">
-                    CUMPLEAÑOS
-                  </h3>
-                  <span className="px-2 py-0.5 bg-bone/10 text-[0.65rem] font-mono text-bone">
-                    OCTUBRE
-                  </span>
-                </div>
-                <p className="text-xs text-fog leading-relaxed mb-4">
-                  Miembros con fecha de nacimiento en el mes actual listos para
-                  beneficios de cumpleaños.
-                </p>
-                <div className="space-y-2 text-xs font-mono text-ash">
-                  {members
-                    .filter((m) => m.birth_date && m.birth_date.slice(5, 7) === "10")
-                    .map((m) => (
-                      <div key={m.id} className="p-2 bg-ink/60 border border-bone/5 flex justify-between">
-                        <span>{m.first_name} {m.last_name}</span>
-                        <span className="text-bone">{m.birth_date.slice(5)}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Campañas y QR Tracking */}
-              <div className="p-6 bg-coal border border-bone/10">
-                <h3 className="display text-xl uppercase mb-4 tracking-tight">
-                  CAMPAÑAS / QR
-                </h3>
-                <div className="space-y-3 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-bone">?utm=playera_qr</span>
-                    <span className="text-ash">Playera oficial</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-bone">?utm=instagram_reels</span>
-                    <span className="text-ash">Campaña IG</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-bone">?utm=mesa_vip_qr</span>
-                    <span className="text-ash">Mesa QR</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Member Directory / Table */}
-        {activeTab === "members" && (
-          <div className="bg-coal border border-bone/10 p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="display text-2xl uppercase">DIRECTORIO DE MIEMBROS</h2>
-                <p className="text-xs text-ash font-mono mt-1">
-                  Base de datos en tiempo real · Control de estados y exportación
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar nombre, ID, teléfono..."
-                  className="bg-ink border border-bone/20 text-xs px-3 py-2 text-bone placeholder:text-ash/60 focus:outline-none focus:border-bone font-mono min-w-[200px]"
-                />
-
-                <select
-                  value={cityFilter}
-                  onChange={(e) => setCityFilter(e.target.value)}
-                  className="bg-ink border border-bone/20 text-xs px-3 py-2 text-bone font-mono focus:outline-none"
-                >
-                  <option value="ALL">Todas las ciudades</option>
-                  <option value="Acapulco">Acapulco</option>
-                  <option value="CDMX">CDMX</option>
-                  <option value="Cuernavaca">Cuernavaca</option>
-                </select>
-
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-ink border border-bone/20 text-xs px-3 py-2 text-bone font-mono focus:outline-none"
-                >
-                  <option value="ALL">Todos los estados</option>
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="VIP">VIP</option>
-                  <option value="BLOCKED">BLOCKED</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={exportCSV}
-                  className="btn btn-primary !min-h-[2.25rem] !px-4 !text-xs font-mono tracking-wider"
-                >
-                  EXPORTAR CSV ↓
-                </button>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono border-collapse">
-                <thead>
-                  <tr className="border-b border-bone/20 text-ash text-[0.65rem] tracking-wider uppercase">
-                    <th className="py-3 px-2">MEMBER ID</th>
-                    <th className="py-3 px-2">NOMBRE</th>
-                    <th className="py-3 px-2">WHATSAPP</th>
-                    <th className="py-3 px-2">EMAIL</th>
-                    <th className="py-3 px-2">CIUDAD</th>
-                    <th className="py-3 px-2">CUMPLEAÑOS</th>
-                    <th className="py-3 px-2">CAMPAÑA</th>
-                    <th className="py-3 px-2">MKT</th>
-                    <th className="py-3 px-2">NIVEL</th>
-                    <th className="py-3 px-2">ESTADO</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-bone/10">
-                  {filteredMembers.map((m) => (
-                    <tr key={m.id} className="hover:bg-ink/50 transition-colors">
-                      <td className="py-3 px-2 font-bold text-bone">#{m.member_number}</td>
-                      <td className="py-3 px-2 text-bone">
-                        {m.first_name} {m.last_name}
-                      </td>
-                      <td className="py-3 px-2 text-ash">{m.phone}</td>
-                      <td className="py-3 px-2 text-ash">{m.email}</td>
-                      <td className="py-3 px-2 text-bone/90">{m.city}</td>
-                      <td className="py-3 px-2 text-ash">{m.birth_date}</td>
-                      <td className="py-3 px-2 text-ash">{m.utm_campaign || "direct"}</td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={`px-1.5 py-0.5 text-[0.6rem] rounded ${
-                            m.marketing_consent
-                              ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/20"
-                              : "bg-zinc-800 text-zinc-400"
-                          }`}
-                        >
-                          {m.marketing_consent ? "SÍ" : "NO"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-bone/80">{m.membership_level}</td>
-                      <td className="py-3 px-2">
-                        <select
-                          value={m.status}
-                          onChange={(e) => handleStatusChange(m.id, e.target.value)}
-                          className="bg-ink border border-bone/20 text-[0.7rem] px-2 py-1 text-bone font-mono rounded"
-                        >
-                          <option value="ACTIVE">ACTIVE</option>
-                          <option value="VIP">VIP</option>
-                          <option value="BLOCKED">BLOCKED</option>
-                          <option value="INACTIVE">INACTIVE</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Members */}
+        <div className="p-5 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-2 relative overflow-hidden group">
+          <div className="flex items-center justify-between text-neutral-400">
+            <span className="text-[0.68rem] font-mono tracking-widest uppercase">TOTAL MIEMBROS</span>
+            <Users className="w-4 h-4 text-amber-400" />
           </div>
-        )}
-
-        {/* Events Manager Tab */}
-        {activeTab === "events" && (
-          <div className="bg-coal border border-bone/10 p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="display text-2xl uppercase">GESTIÓN DE EVENTOS</h2>
-                <p className="text-xs text-ash font-mono mt-1">
-                  Publica o edita eventos para la agenda de Club Bacachá
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowEventModal(!showEventModal)}
-                className="btn btn-primary !min-h-[2.5rem] !px-4 !text-xs font-mono"
-              >
-                + NUEVO EVENTO
-              </button>
-            </div>
-
-            {showEventModal && (
-              <div className="p-6 bg-ink border border-bone/20 rounded-xl space-y-4 max-w-lg">
-                <h3 className="display text-xl uppercase">Crear Evento</h3>
-                <input
-                  type="text"
-                  placeholder="Nombre del evento"
-                  value={newEvent.name}
-                  onChange={(e) => setNewEvent({ ...newEvent, name: e.target.value })}
-                  className="field-input text-xs"
-                />
-                <input
-                  type="text"
-                  placeholder="Locación / Venue"
-                  value={newEvent.venue}
-                  onChange={(e) => setNewEvent({ ...newEvent, venue: e.target.value })}
-                  className="field-input text-xs"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="date"
-                    value={newEvent.event_date}
-                    onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                    className="field-input text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Hora (ej. 22:00)"
-                    value={newEvent.event_time}
-                    onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
-                    className="field-input text-xs"
-                  />
-                </div>
-                <textarea
-                  placeholder="Descripción corta"
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                  className="w-full bg-transparent border-b border-bone/25 text-xs p-2 text-bone"
-                  rows={2}
-                />
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch("/api/admin/events", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(newEvent),
-                      });
-                      setShowEventModal(false);
-                    }}
-                    className="btn btn-primary !min-h-[2.5rem] !px-4 text-xs font-mono"
-                  >
-                    GUARDAR EVENTO
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowEventModal(false)}
-                    className="btn btn-ghost !min-h-[2.5rem] !px-4 text-xs font-mono"
-                  >
-                    CANCELAR
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-              <div className="p-4 bg-ink border border-bone/10 flex justify-between items-center">
-                <div>
-                  <h4 className="display text-lg uppercase text-bone">NOCHE CERO</h4>
-                  <p className="text-xs text-ash font-mono">2026-10-31 · 22:00 HRS · Locación secreta</p>
-                </div>
-                <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 text-[0.65rem] font-mono border border-emerald-500/20">
-                  PUBLICADO
-                </span>
-              </div>
-              <div className="p-4 bg-ink border border-bone/10 flex justify-between items-center">
-                <div>
-                  <h4 className="display text-lg uppercase text-bone">BAHÍA AFTER DARK</h4>
-                  <p className="text-xs text-ash font-mono">2026-11-14 · 21:00 HRS · Bahía de Santa Lucía</p>
-                </div>
-                <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 text-[0.65rem] font-mono border border-emerald-500/20">
-                  PUBLICADO
-                </span>
-              </div>
-            </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold font-serif text-white tracking-tight">
+              {metrics.totalMembers}
+            </span>
+            <span className="text-xs font-mono text-emerald-400 flex items-center">
+              <TrendingUp className="w-3 h-3 mr-0.5" />
+              +{metrics.growthPercent}%
+            </span>
           </div>
-        )}
+          <p className="text-[0.68rem] text-neutral-500 font-mono">
+            {metrics.todayRegistrations} hoy · {metrics.sevenDaysRegistrations} esta semana
+          </p>
+        </div>
 
-        {/* Benefits Manager Tab */}
-        {activeTab === "benefits" && (
-          <div className="bg-coal border border-bone/10 p-6 sm:p-8 space-y-6">
+        {/* VIP Members */}
+        <div className="p-5 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-2 relative overflow-hidden group">
+          <div className="flex items-center justify-between text-neutral-400">
+            <span className="text-[0.68rem] font-mono tracking-widest uppercase">MIEMBROS VIP</span>
+            <Sparkles className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold font-serif text-white tracking-tight">
+              {metrics.vipMembersCount}
+            </span>
+            <span className="text-[0.65rem] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300">
+              ALTA FIDELIDAD
+            </span>
+          </div>
+          <p className="text-[0.68rem] text-neutral-500 font-mono">
+            Acceso preferencial a experiencias privadas
+          </p>
+        </div>
+
+        {/* Actividad Reciente */}
+        <div className="p-5 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-2 relative overflow-hidden group">
+          <div className="flex items-center justify-between text-neutral-400">
+            <span className="text-[0.68rem] font-mono tracking-widest uppercase">ACTIVIDAD RECIENTE</span>
+            <Activity className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold font-serif text-emerald-400 tracking-tight">
+              {metrics.activeRecentlyCount}
+            </span>
+            <span className="text-[0.68rem] text-neutral-400 font-mono">
+              / {metrics.toReactivateCount} por reactivar
+            </span>
+          </div>
+          <p className="text-[0.68rem] text-neutral-500 font-mono">
+            Participaron en los últimos 30 días
+          </p>
+        </div>
+
+        {/* Total Interacciones */}
+        <div className="p-5 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-2 relative overflow-hidden group">
+          <div className="flex items-center justify-between text-neutral-400">
+            <span className="text-[0.68rem] font-mono tracking-widest uppercase">INTERACCIONES</span>
+            <Award className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold font-serif text-white tracking-tight">
+              {metrics.totalInteractions}
+            </span>
+            <span className="text-[0.68rem] text-neutral-400 font-mono">registradas</span>
+          </div>
+          <p className="text-[0.68rem] text-neutral-500 font-mono">
+            {metrics.referralsCount} referidos · {metrics.eventsCount} eventos activos
+          </p>
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Daily Registrations Bar Chart (14 days) */}
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="display text-2xl uppercase">GESTIÓN DE BENEFICIOS</h2>
-              <p className="text-xs text-ash font-mono mt-1">
-                Activa o desactiva beneficios para los miembros del Club
+              <h2 className="text-sm font-semibold text-white tracking-wide uppercase">
+                CRECIMIENTO DE AFILIADOS (ÚLTIMOS 14 DÍAS)
+              </h2>
+              <p className="text-[0.68rem] font-mono text-neutral-400">
+                Evolución de registros verificados por día
               </p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { title: "Promociones Secretas", slug: "promociones-secretas" },
-                { title: "Eventos Exclusivos", slug: "eventos" },
-                { title: "Cumpleaños VIP", slug: "cumpleanos" },
-                { title: "Accesos Preferenciales", slug: "accesos" },
-                { title: "Experiencias Únicas", slug: "experiencias" },
-                { title: "Invitaciones Privadas", slug: "invitaciones" },
-                { title: "Sorpresas en Barra", slug: "sorpresas" },
-                { title: "Beneficios de Miembro", slug: "beneficios-miembros" },
-              ].map((b) => (
-                <div key={b.slug} className="p-4 bg-ink border border-bone/10 flex flex-col justify-between">
-                  <h4 className="display text-base uppercase text-bone mb-3">{b.title}</h4>
-                  <div className="flex justify-between items-center text-xs font-mono pt-3 border-t border-bone/10">
-                    <span className="text-emerald-400">ACTIVO</span>
-                    <button
-                      type="button"
-                      className="text-ash underline hover:text-bone text-[0.7rem]"
-                    >
-                      Editar
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <span className="text-xs font-mono text-amber-400 font-semibold">
+              +{metrics.thirtyDaysRegistrations} en 30 días
+            </span>
           </div>
-        )}
-      </main>
+
+          {/* Bar Chart Container */}
+          <div className="h-48 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-neutral-850">
+            {data?.dailyRegistrations.map((d) => {
+              const heightPercent = Math.max(8, Math.round((d.count / maxDaily) * 100));
+              const isToday = d.date === new Date().toISOString().split("T")[0];
+
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-2 group relative">
+                  {/* Tooltip */}
+                  <div className="absolute -top-8 hidden group-hover:flex px-2 py-1 bg-neutral-800 text-white text-[0.62rem] font-mono rounded shadow-lg whitespace-nowrap z-10">
+                    {d.date}: {d.count} miembros
+                  </div>
+
+                  <div
+                    style={{ height: `${heightPercent}%` }}
+                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-300 ${
+                      isToday
+                        ? "bg-amber-400 group-hover:bg-amber-300"
+                        : d.count > 0
+                        ? "bg-neutral-600 group-hover:bg-neutral-400"
+                        : "bg-neutral-850 group-hover:bg-neutral-800"
+                    }`}
+                  />
+                  <span className="text-[0.6rem] font-mono text-neutral-400 truncate max-w-full">
+                    {d.date.slice(8)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between text-[0.68rem] font-mono text-neutral-400">
+            <span>Fuente: Base de datos oficial Supabase</span>
+            <span>Actualizado en tiempo real</span>
+          </div>
+        </div>
+
+        {/* Distribution by City */}
+        <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white tracking-wide uppercase">
+              MIEMBROS POR CIUDAD
+            </h2>
+            <MapPin className="w-4 h-4 text-amber-400" />
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {Object.entries(data?.cityCounts || {}).length === 0 ? (
+              <p className="text-xs text-neutral-500 font-mono py-8 text-center">
+                Sin datos de ubicación registrados
+              </p>
+            ) : (
+              Object.entries(data?.cityCounts || {})
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([city, count]) => {
+                  const pct = metrics.totalMembers > 0 ? Math.round((count / metrics.totalMembers) * 100) : 0;
+                  return (
+                    <div key={city} className="space-y-1">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-neutral-300">{city}</span>
+                        <span className="text-neutral-400">
+                          {count} ({pct}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${pct}%` }}
+                          className="h-full bg-amber-400/80 rounded-full"
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Secondary Grid: Upcoming Birthdays & Recent Members */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upcoming Birthdays */}
+        <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cake className="w-4 h-4 text-pink-400" />
+              <h2 className="text-sm font-semibold text-white tracking-wide uppercase">
+                PRÓXIMOS CUMPLEAÑOS
+              </h2>
+            </div>
+            <Link
+              href="/admin/cumpleanos"
+              className="text-[0.68rem] font-mono text-amber-400 hover:text-amber-300 uppercase"
+            >
+              Ver todos →
+            </Link>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {(!data?.upcomingBirthdays || data.upcomingBirthdays.length === 0) ? (
+              <div className="py-8 text-center text-xs font-mono text-neutral-500">
+                No hay cumpleaños registrados en los próximos 30 días
+              </div>
+            ) : (
+              data.upcomingBirthdays.slice(0, 5).map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/60 border border-neutral-850"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-white">
+                      {m.first_name} {m.last_name}
+                    </span>
+                    <span className="text-[0.65rem] font-mono text-neutral-400">
+                      #{m.member_number} · {m.birth_date} · {m.city}
+                    </span>
+                  </div>
+
+                  <a
+                    href={`https://wa.me/${m.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `¡Feliz cumpleaños ${m.first_name} de parte del Club Bacachá! 🍾 Queremos celebrarte en grande con una cortesía especial en tu próxima visita.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/70 text-xs font-mono flex items-center gap-1.5 transition-colors"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Felicitar</span>
+                  </a>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Recent Members */}
+        <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-semibold text-white tracking-wide uppercase">
+                ÚLTIMOS MIEMBROS AFILIADOS
+              </h2>
+            </div>
+            <Link
+              href="/admin/miembros"
+              className="text-[0.68rem] font-mono text-amber-400 hover:text-amber-300 uppercase"
+            >
+              Ver directorio completo →
+            </Link>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {(!data?.recentMembers || data.recentMembers.length === 0) ? (
+              <div className="py-8 text-center text-xs font-mono text-neutral-500">
+                Sin miembros registrados recientemente
+              </div>
+            ) : (
+              data.recentMembers.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/admin/miembros/${m.id}`}
+                  className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/60 border border-neutral-850 hover:border-neutral-700 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center font-mono text-xs font-semibold text-amber-400">
+                      {m.first_name[0]}
+                      {m.last_name[0]}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-white group-hover:text-amber-300 transition-colors">
+                        {m.first_name} {m.last_name}
+                      </span>
+                      <span className="text-[0.65rem] font-mono text-neutral-400">
+                        #{m.member_number} · {m.city} · {new Date(m.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-mono text-neutral-500 group-hover:text-white transition-colors">
+                    Ver ficha →
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
