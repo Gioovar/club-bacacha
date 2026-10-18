@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // 2. Check if already checked in
     const { data: existingCheckin } = await supabase
       .from("event_checkins")
-      .select("id, checkin_at")
+      .select("id, checkin_at, social_plan")
       .eq("event_id", eventId)
       .eq("member_id", member.id)
       .single();
@@ -54,8 +54,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         error: "Check-in duplicado. Este socio ya fue registrado previamente para este evento.",
         checkedInAt: existingCheckin.checkin_at,
+        socialPlan: existingCheckin.social_plan || "SIN_ETIQUETA",
         member,
       }, { status: 409 });
+    }
+
+    // Determine social plan: from request body, or from prior event_registration, or default to SIN_ETIQUETA
+    let finalSocialPlan = body.socialPlan || null;
+    if (!finalSocialPlan) {
+      const { data: priorReg } = await supabase
+        .from("event_registrations")
+        .select("social_plan")
+        .eq("event_id", eventId)
+        .eq("member_id", member.id)
+        .maybeSingle();
+
+      if (priorReg?.social_plan) {
+        finalSocialPlan = priorReg.social_plan;
+      } else {
+        finalSocialPlan = "SIN_ETIQUETA";
+      }
     }
 
     // 3. Register Checkin
@@ -64,6 +82,7 @@ export async function POST(req: NextRequest) {
       .insert({
         event_id: eventId,
         member_id: member.id,
+        social_plan: finalSocialPlan,
         verified_by: session.user.id,
         verified_by_name: session.user.name || "Operador Autorizado",
       })
@@ -118,6 +137,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      socialPlan: finalSocialPlan,
       member: {
         id: member.id,
         member_number: member.member_number,

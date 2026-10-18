@@ -102,6 +102,7 @@ class SupabaseMemberRepository implements MemberRepository {
     const { data: inserted, error: insertError } = await this.supabase
       .from("members")
       .insert({
+        relationship_status: data.relationshipStatus || "PREFIERO_NO_DECIR",
         first_name: data.firstName,
         last_name: data.lastName,
         birth_date: data.birthDate,
@@ -155,7 +156,7 @@ class SupabaseMemberRepository implements MemberRepository {
       });
     }
 
-    // 6. Record registration activity
+    // 6. Record registration activity and initialize engagement score (5 points)
     await this.supabase.from("member_activity").insert({
       member_id: inserted.id,
       activity_type: "REGISTERED",
@@ -164,6 +165,17 @@ class SupabaseMemberRepository implements MemberRepository {
         landing_url: data.attribution?.landing_url,
       },
     });
+
+    await this.supabase.from("member_engagement_scores").upsert({
+      member_id: inserted.id,
+      total_score: 5,
+      score_30d: 5,
+      score_60d: 5,
+      score_90d: 5,
+      category: "NUEVO_MIEMBRO",
+      last_activity_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "member_id" });
 
     const publicMember: PublicMember = {
       memberNumber: parseInt(inserted.member_number, 10),

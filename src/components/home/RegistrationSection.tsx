@@ -33,10 +33,16 @@ export function RegistrationSection({ eyebrow, titleLines, body }: Props) {
     phone: "",
     email: "",
     city: "",
+    relationshipStatus: "PREFIERO_NO_DECIR",
     instagram: "",
     acceptPrivacy: true as unknown as true, // will be bound to checkbox
     acceptMarketing: false, // NOT pre-checked by design rule
   });
+
+  const [birthDay, setBirthDay] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [calculatedAge, setCalculatedAge] = useState<number | null>(null);
 
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [marketingAccepted, setMarketingAccepted] = useState(false);
@@ -44,6 +50,50 @@ export function RegistrationSection({ eyebrow, titleLines, body }: Props) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Sync 3-part birthdate to formData.birthDate and validate in real-time
+  useEffect(() => {
+    if (birthDay && birthMonth && birthYear) {
+      const d = birthDay.padStart(2, "0");
+      const m = birthMonth.padStart(2, "0");
+      const y = birthYear;
+      const iso = `${y}-${m}-${d}`;
+      
+      const birthDateObj = new Date(`${y}-${m}-${d}T00:00:00`);
+      const now = new Date();
+      let age = now.getFullYear() - Number(y);
+      const mDiff = now.getMonth() + 1 - Number(m);
+      if (mDiff < 0 || (mDiff === 0 && now.getDate() < Number(d))) {
+        age--;
+      }
+
+      const isValidDate =
+        birthDateObj.getFullYear() === Number(y) &&
+        birthDateObj.getMonth() + 1 === Number(m) &&
+        birthDateObj.getDate() === Number(d);
+
+      if (!isValidDate) {
+        setCalculatedAge(null);
+        setFieldErrors((prev) => ({ ...prev, birthDate: "Fecha no válida en el calendario" }));
+        return;
+      }
+
+      if (birthDateObj > now) {
+        setCalculatedAge(null);
+        setFieldErrors((prev) => ({ ...prev, birthDate: "No se permiten fechas futuras" }));
+        return;
+      }
+
+      setCalculatedAge(age);
+      if (age < 18) {
+        setFieldErrors((prev) => ({ ...prev, birthDate: "Debes ser mayor de 18 años para entrar al Club" }));
+      } else {
+        setFieldErrors((prev) => ({ ...prev, birthDate: "" }));
+      }
+
+      setFormData((prev) => ({ ...prev, birthDate: iso }));
+    }
+  }, [birthDay, birthMonth, birthYear]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -136,10 +186,15 @@ export function RegistrationSection({ eyebrow, titleLines, body }: Props) {
                 phone: "",
                 email: "",
                 city: "",
+                relationshipStatus: "PREFIERO_NO_DECIR",
                 instagram: "",
                 acceptPrivacy: true as unknown as true,
                 acceptMarketing: false,
               });
+              setBirthDay("");
+              setBirthMonth("");
+              setBirthYear("");
+              setCalculatedAge(null);
               setPrivacyAccepted(false);
               setMarketingAccepted(false);
             }}
@@ -214,24 +269,95 @@ export function RegistrationSection({ eyebrow, titleLines, body }: Props) {
                 </div>
               </div>
 
-              {/* Row 2: Fecha Nacimiento & WhatsApp */}
+              {/* Row 2: Fecha Nacimiento (Selector móvil 3 campos) & WhatsApp */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="field">
-                  <label htmlFor="reg-birth" className="field-label">
-                    FECHA DE NACIMIENTO (+18) *
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="field-label !mb-0">
+                      FECHA DE NACIMIENTO (+18) *
+                    </label>
+                    {calculatedAge !== null && calculatedAge >= 18 && (
+                      <span className="text-[0.68rem] font-mono text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded">
+                        {calculatedAge} AÑOS ✓
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 3-part comfortable mobile selector: Día, Mes, Año */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <select
+                        id="reg-birth-day"
+                        value={birthDay}
+                        onChange={(e) => setBirthDay(e.target.value)}
+                        required
+                        className="field-input !px-2 text-center"
+                        aria-label="Día de nacimiento"
+                      >
+                        <option value="">Día</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                          <option key={d} value={String(d)}>
+                            {String(d).padStart(2, "0")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <select
+                        id="reg-birth-month"
+                        value={birthMonth}
+                        onChange={(e) => setBirthMonth(e.target.value)}
+                        required
+                        className="field-input !px-1.5 text-center text-xs"
+                        aria-label="Mes de nacimiento"
+                      >
+                        <option value="">Mes</option>
+                        <option value="1">01 · Ene</option>
+                        <option value="2">02 · Feb</option>
+                        <option value="3">03 · Mar</option>
+                        <option value="4">04 · Abr</option>
+                        <option value="5">05 · May</option>
+                        <option value="6">06 · Jun</option>
+                        <option value="7">07 · Jul</option>
+                        <option value="8">08 · Ago</option>
+                        <option value="9">09 · Sep</option>
+                        <option value="10">10 · Oct</option>
+                        <option value="11">11 · Nov</option>
+                        <option value="12">12 · Dic</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <select
+                        id="reg-birth-year"
+                        value={birthYear}
+                        onChange={(e) => setBirthYear(e.target.value)}
+                        required
+                        className="field-input !px-2 text-center"
+                        aria-label="Año de nacimiento"
+                      >
+                        <option value="">Año</option>
+                        {Array.from(
+                          { length: 85 },
+                          (_, i) => 2008 - i
+                        ).map((yr) => (
+                          <option key={yr} value={String(yr)}>
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <input
-                    id="reg-birth"
+                    type="hidden"
                     name="birthDate"
-                    type="date"
-                    required
                     value={formData.birthDate}
-                    onChange={handleChange}
-                    className="field-input"
-                    aria-invalid={Boolean(fieldErrors.birthDate)}
                   />
+
                   {fieldErrors.birthDate && (
-                    <p className="field-error">{fieldErrors.birthDate}</p>
+                    <p className="field-error mt-1.5">{fieldErrors.birthDate}</p>
                   )}
                 </div>
 
@@ -299,7 +425,55 @@ export function RegistrationSection({ eyebrow, titleLines, body }: Props) {
                 </div>
               </div>
 
-              {/* Row 4: Instagram (Opcional) */}
+              {/* Row 4: Situación Sentimental (Opcional) */}
+              <div className="field">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="field-label !mb-0">
+                    ¿CUÁL ES TU SITUACIÓN SENTIMENTAL? (OPCIONAL)
+                  </label>
+                  <span className="text-[0.62rem] font-mono text-ash/80 uppercase">
+                    Privado en tu perfil
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { value: "SOLTERO", label: "Soltero(a)", icon: "🍸" },
+                    { value: "EN_RELACION", label: "En una relación", icon: "❤️" },
+                    { value: "CASADO", label: "Casado(a)", icon: "💍" },
+                    { value: "PREFIERO_NO_DECIR", label: "Prefiero no decir", icon: "🔒" },
+                  ].map((opt) => {
+                    const isSelected = formData.relationshipStatus === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            relationshipStatus: opt.value as any,
+                          }))
+                        }
+                        className={`p-3 rounded-lg border text-left flex flex-col justify-between transition-all ${
+                          isSelected
+                            ? "bg-amber-400/10 border-amber-400 text-bone shadow-md shadow-amber-400/10"
+                            : "bg-coal/60 border-bone/10 text-fog hover:border-bone/30"
+                        }`}
+                      >
+                        <span className="text-base mb-1">{opt.icon}</span>
+                        <span className="text-xs font-mono font-medium tracking-tight">
+                          {opt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[0.68rem] text-ash font-light mt-2">
+                  Esta información es confidencial y no se exhibe públicamente. En cada evento podrás elegir independientemente en qué plan asistes.
+                </p>
+              </div>
+
+              {/* Row 5: Instagram (Opcional) */}
               <div className="field">
                 <label htmlFor="reg-ig" className="field-label">
                   INSTAGRAM (OPCIONAL)

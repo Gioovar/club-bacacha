@@ -23,12 +23,14 @@ export default function AdminEventsPage() {
   const [checkinModalOpen, setCheckinModalOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [identifierInput, setIdentifierInput] = useState("");
+  const [checkinSocialPlan, setCheckinSocialPlan] = useState(""); // "" = use member RSVP or default
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinResult, setCheckinResult] = useState<{
     success: boolean;
     message: string;
     member?: any;
     scoreAwarded?: number;
+    socialPlan?: string;
   } | null>(null);
 
   // New Event Modal
@@ -71,6 +73,10 @@ export default function AdminEventsPage() {
       const input = identifierInput.trim();
       const payload: any = { eventId: selectedEventId };
 
+      if (checkinSocialPlan) {
+        payload.socialPlan = checkinSocialPlan;
+      }
+
       if (input.startsWith("#") || (!isNaN(Number(input)) && input.length <= 6)) {
         payload.memberNumber = input.replace("#", "");
       } else {
@@ -91,13 +97,16 @@ export default function AdminEventsPage() {
           message: `Check-in exitoso para ${data.member.first_name} ${data.member.last_name} (#${data.member.member_number}). Se sumaron +${data.scoreAwarded} puntos de engagement.`,
           member: data.member,
           scoreAwarded: data.scoreAwarded,
+          socialPlan: data.socialPlan || "SIN_ETIQUETA",
         });
         setIdentifierInput("");
+        fetchEvents();
       } else {
         setCheckinResult({
           success: false,
           message: data.error || "No se pudo procesar el check-in",
           member: data.member,
+          socialPlan: data.socialPlan,
         });
       }
     } catch {
@@ -217,6 +226,37 @@ export default function AdminEventsPage() {
                     <span>Fecha: {evt.event_date}</span>
                   </div>
                 </div>
+
+                {/* Social Plan Breakdown & Wristbands */}
+                <div className="p-3 rounded-xl bg-neutral-900/80 border border-neutral-850 space-y-2">
+                  <div className="flex items-center justify-between text-[0.65rem] font-mono text-neutral-400">
+                    <span>DINÁMICA SOCIAL:</span>
+                    <span className="text-white font-bold">{evt.checkinsCount || 0} asistencias · {evt.registrationsCount || 0} RSVPs</span>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-1 text-[0.62rem] font-mono text-center">
+                    <div className="p-1 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300" title="Plan de Ligue">
+                      <span className="block font-bold">💚 {evt.socialPlans?.PLAN_LIGUE || 0}</span>
+                      <span className="text-[0.55rem] text-emerald-400/80">Ligue</span>
+                    </div>
+                    <div className="p-1 rounded bg-blue-950/60 border border-blue-500/30 text-blue-300" title="Hacer Amigos">
+                      <span className="block font-bold">💙 {evt.socialPlans?.HACER_AMIGOS || 0}</span>
+                      <span className="text-[0.55rem] text-blue-400/80">Amigos</span>
+                    </div>
+                    <div className="p-1 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300" title="En Pareja">
+                      <span className="block font-bold">💜 {evt.socialPlans?.EN_PAREJA || 0}</span>
+                      <span className="text-[0.55rem] text-purple-400/80">Pareja</span>
+                    </div>
+                    <div className="p-1 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300" title="Solo a divertirme">
+                      <span className="block font-bold">💛 {evt.socialPlans?.SOLO_DIVERTIRME || 0}</span>
+                      <span className="text-[0.55rem] text-amber-400/80">Fiesta</span>
+                    </div>
+                    <div className="p-1 rounded bg-neutral-900 border border-neutral-750 text-neutral-400" title="Sin etiqueta">
+                      <span className="block font-bold">⚪ {evt.socialPlans?.SIN_ETIQUETA || 0}</span>
+                      <span className="text-[0.55rem] text-neutral-500">Privado</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-neutral-850 flex items-center justify-between">
@@ -247,12 +287,13 @@ export default function AdminEventsPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white font-mono uppercase flex items-center gap-2">
                 <QrCode className="w-4 h-4 text-purple-400" />
-                <span>VALIDAR ENTRADA · CHECK-IN</span>
+                <span>VALIDAR ENTRADA & PLAN SOCIAL</span>
               </h3>
               <button
                 onClick={() => {
                   setCheckinModalOpen(false);
                   setCheckinResult(null);
+                  setCheckinSocialPlan("");
                 }}
                 className="text-neutral-500 hover:text-white text-xs font-mono"
               >
@@ -278,6 +319,25 @@ export default function AdminEventsPage() {
                 </select>
               </div>
 
+              {/* Dynamic Social Plan selector during check-in */}
+              <div>
+                <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
+                  ¿En qué plan viene hoy? (Pulsera / Etiqueta)
+                </label>
+                <select
+                  value={checkinSocialPlan}
+                  onChange={(e) => setCheckinSocialPlan(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white font-mono"
+                >
+                  <option value="">(Automático · según reserva del socio)</option>
+                  <option value="PLAN_LIGUE">💚 PLAN DE LIGUE — Pulsera Verde</option>
+                  <option value="HACER_AMIGOS">💙 HACER AMIGOS — Pulsera Azul</option>
+                  <option value="EN_PAREJA">💜 EN PAREJA — Pulsera Morada</option>
+                  <option value="SOLO_DIVERTIRME">💛 SOLO A DIVERTIRME — Pulsera Amarilla</option>
+                  <option value="SIN_ETIQUETA">⚪ SIN ETIQUETA — Pulsera Blanca / Sin pulsera</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
                   Token QR o #Socio
@@ -295,20 +355,87 @@ export default function AdminEventsPage() {
                 </span>
               </div>
 
+              {/* Result Banner with colored wristband indicator */}
               {checkinResult && (
-                <div
-                  className={`p-3.5 rounded-xl border text-xs font-mono flex items-start gap-2.5 ${
-                    checkinResult.success
-                      ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-                      : "bg-red-950/60 border-red-500/40 text-red-300"
-                  }`}
-                >
-                  {checkinResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs font-mono flex items-start gap-2.5 ${
+                      checkinResult.success
+                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                        : "bg-red-950/60 border-red-500/40 text-red-300"
+                    }`}
+                  >
+                    {checkinResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    )}
+                    <span>{checkinResult.message}</span>
+                  </div>
+
+                  {checkinResult.success && checkinResult.socialPlan && (
+                    <div>
+                      {checkinResult.socialPlan === "PLAN_LIGUE" && (
+                        <div className="p-3.5 rounded-xl bg-emerald-950/90 border-2 border-emerald-400 text-emerald-200 font-mono text-xs space-y-1 animate-pulse">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-emerald-300">💚 PLAN DE LIGUE</span>
+                            <span className="bg-emerald-400 text-black px-2 py-0.5 rounded text-[0.68rem] font-bold">
+                              ENTREGAR PULSERA VERDE
+                            </span>
+                          </div>
+                          <p className="text-[0.7rem] text-emerald-300/80">"Me gustaría conocer a alguien especial"</p>
+                        </div>
+                      )}
+
+                      {checkinResult.socialPlan === "HACER_AMIGOS" && (
+                        <div className="p-3.5 rounded-xl bg-blue-950/90 border-2 border-blue-400 text-blue-200 font-mono text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-blue-300">💙 HACER AMIGOS</span>
+                            <span className="bg-blue-400 text-black px-2 py-0.5 rounded text-[0.68rem] font-bold">
+                              ENTREGAR PULSERA AZUL
+                            </span>
+                          </div>
+                          <p className="text-[0.7rem] text-blue-300/80">"Quiero conocer gente nueva y hacer amigos"</p>
+                        </div>
+                      )}
+
+                      {checkinResult.socialPlan === "EN_PAREJA" && (
+                        <div className="p-3.5 rounded-xl bg-purple-950/90 border-2 border-purple-400 text-purple-200 font-mono text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-purple-300">💜 EN PAREJA</span>
+                            <span className="bg-purple-400 text-black px-2 py-0.5 rounded text-[0.68rem] font-bold">
+                              ENTREGAR PULSERA MORADA
+                            </span>
+                          </div>
+                          <p className="text-[0.7rem] text-purple-300/80">"Vengo con mi pareja a disfrutar"</p>
+                        </div>
+                      )}
+
+                      {checkinResult.socialPlan === "SOLO_DIVERTIRME" && (
+                        <div className="p-3.5 rounded-xl bg-amber-950/90 border-2 border-amber-400 text-amber-200 font-mono text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-amber-300">💛 SOLO A DIVERTIRME</span>
+                            <span className="bg-amber-400 text-black px-2 py-0.5 rounded text-[0.68rem] font-bold">
+                              ENTREGAR PULSERA AMARILLA
+                            </span>
+                          </div>
+                          <p className="text-[0.7rem] text-amber-300/80">"Vengo a disfrutar la fiesta"</p>
+                        </div>
+                      )}
+
+                      {checkinResult.socialPlan === "SIN_ETIQUETA" && (
+                        <div className="p-3.5 rounded-xl bg-neutral-900 border-2 border-neutral-600 text-neutral-300 font-mono text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-neutral-200">⚪ SIN ETIQUETA</span>
+                            <span className="bg-neutral-700 text-white px-2 py-0.5 rounded text-[0.68rem] font-bold">
+                              PULSERA NEUTRA / PRIVADO
+                            </span>
+                          </div>
+                          <p className="text-[0.7rem] text-neutral-400">"Prefiero mantener mi plan privado"</p>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <span>{checkinResult.message}</span>
                 </div>
               )}
 

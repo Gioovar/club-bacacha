@@ -37,6 +37,21 @@ export type Attribution = z.infer<typeof attributionSchema>;
 
 const onlyDigits = (v: string) => v.replace(/\D/g, "");
 
+export const RELATIONSHIP_STATUSES = [
+  "SOLTERO",
+  "EN_RELACION",
+  "CASADO",
+  "PREFIERO_NO_DECIR",
+] as const;
+
+export const SOCIAL_PLANS = [
+  "PLAN_LIGUE",
+  "HACER_AMIGOS",
+  "EN_PAREJA",
+  "SOLO_DIVERTIRME",
+  "SIN_ETIQUETA",
+] as const;
+
 export const registrationSchema = z.object({
   firstName: z.string().trim().min(2, "Escribe tu nombre").max(60, "Nombre demasiado largo"),
   lastName: z.string().trim().min(2, "Escribe tu apellido").max(80, "Apellido demasiado largo"),
@@ -54,6 +69,7 @@ export const registrationSchema = z.object({
     .refine((v) => v.length >= 10 && v.length <= 13, "Escribe un WhatsApp válido (10 dígitos)"),
   email: z.string().trim().toLowerCase().pipe(z.email("Escribe un correo válido")),
   city: z.string().trim().min(2, "¿Desde qué ciudad nos visitas?").max(80),
+  relationshipStatus: z.enum(RELATIONSHIP_STATUSES).optional().default("PREFIERO_NO_DECIR"),
   instagram: z
     .string()
     .trim()

@@ -1,11 +1,15 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ClubEvent } from "@/lib/content/types";
 import { formatEventDate } from "@/lib/site";
 import { RevealLines } from "@/components/motion/RevealLines";
 import { Reveal } from "@/components/motion/Reveal";
+import { loadMember } from "@/lib/members/client-store";
+import type { PublicMember } from "@/lib/members/types";
+import { CheckCircle2, Sparkles, X, Heart, Users, Flame, Lock } from "lucide-react";
 
 type Props = {
   eyebrow: string;
@@ -13,13 +17,157 @@ type Props = {
   items: ClubEvent[];
 };
 
-/**
- * Events Section.
- * "PRÓXIMOS EVENTOS"
- * Large visual event cards with dates, times, locations, and direct reservation triggers.
- * Ready to connect with Supabase events table.
- */
+export const SOCIAL_PLAN_DETAILS = {
+  PLAN_LIGUE: {
+    emoji: "💚",
+    title: "PLAN DE LIGUE",
+    description: "Me gustaría conocer a alguien especial",
+    wristband: "Pulsera Verde",
+    colorClass: "bg-emerald-950/80 border-emerald-400 text-emerald-200",
+    badgeBg: "bg-emerald-400 text-black",
+  },
+  HACER_AMIGOS: {
+    emoji: "💙",
+    title: "HACER AMIGOS",
+    description: "Quiero conocer gente nueva y hacer amigos",
+    wristband: "Pulsera Azul",
+    colorClass: "bg-blue-950/80 border-blue-400 text-blue-200",
+    badgeBg: "bg-blue-400 text-black",
+  },
+  EN_PAREJA: {
+    emoji: "💜",
+    title: "EN PAREJA",
+    description: "Vengo con mi pareja a disfrutar",
+    wristband: "Pulsera Morada",
+    colorClass: "bg-purple-950/80 border-purple-400 text-purple-200",
+    badgeBg: "bg-purple-400 text-black",
+  },
+  SOLO_DIVERTIRME: {
+    emoji: "💛",
+    title: "SOLO A DIVERTIRME",
+    description: "Vengo a disfrutar la fiesta",
+    wristband: "Pulsera Amarilla",
+    colorClass: "bg-amber-950/80 border-amber-400 text-amber-200",
+    badgeBg: "bg-amber-400 text-black",
+  },
+  SIN_ETIQUETA: {
+    emoji: "⚪",
+    title: "SIN ETIQUETA",
+    description: "Prefiero mantener mi plan privado",
+    wristband: "Sin pulsera / Neutra",
+    colorClass: "bg-neutral-900 border-neutral-600 text-neutral-300",
+    badgeBg: "bg-neutral-700 text-white",
+  },
+} as const;
+
+export type SocialPlanKey = keyof typeof SOCIAL_PLAN_DETAILS;
+
 export function EventsSection({ eyebrow, titleLines, items }: Props) {
+  const [member, setMember] = useState<PublicMember | null>(null);
+
+  // RSVP Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ClubEvent | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<SocialPlanKey>("HACER_AMIGOS");
+  const [identifierInput, setIdentifierInput] = useState("");
+  const [loadingRegistration, setLoadingRegistration] = useState(false);
+  const [hasBirthDate, setHasBirthDate] = useState(true);
+
+  // Missing birthdate state
+  const [bDay, setBDay] = useState("");
+  const [bMonth, setBMonth] = useState("");
+  const [bYear, setBYear] = useState("");
+
+  const [rsvpSuccess, setRsvpSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const m = loadMember();
+    setMember(m);
+  }, []);
+
+  const openRsvpModal = async (event: ClubEvent) => {
+    setSelectedEvent(event);
+    setErrorMessage(null);
+    setRsvpSuccess(false);
+    setModalOpen(true);
+
+    if (member?.qrToken) {
+      try {
+        const res = await fetch(
+          `/api/events/register?eventId=${encodeURIComponent(event.id)}&qrToken=${encodeURIComponent(
+            member.qrToken
+          )}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.socialPlan) {
+            setSelectedPlan(data.socialPlan as SocialPlanKey);
+          }
+          if (data.hasBirthDate !== undefined) {
+            setHasBirthDate(data.hasBirthDate);
+          }
+        }
+      } catch {
+        // ignore fallback
+      }
+    }
+  };
+
+  const handleConfirmRsvp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvent) return;
+    setErrorMessage(null);
+    setLoadingRegistration(true);
+
+    try {
+      const payload: any = {
+        eventId: selectedEvent.id,
+        socialPlan: selectedPlan,
+      };
+
+      if (member?.qrToken) {
+        payload.qrToken = member.qrToken;
+      } else if (identifierInput.trim()) {
+        const val = identifierInput.trim();
+        if (val.includes("@")) {
+          payload.email = val;
+        } else if (val.startsWith("#") || !isNaN(Number(val))) {
+          payload.memberNumber = val.replace("#", "");
+        } else {
+          payload.phone = val;
+        }
+      } else {
+        setErrorMessage("Por favor ingresa tu número de miembro o afíliate.");
+        setLoadingRegistration(false);
+        return;
+      }
+
+      // If user needed to complete birth date
+      if (!hasBirthDate && bDay && bMonth && bYear) {
+        payload.birthDate = `${bYear}-${bMonth.padStart(2, "0")}-${bDay.padStart(2, "0")}`;
+      }
+
+      const res = await fetch("/api/events/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setRsvpSuccess(true);
+      } else {
+        setErrorMessage(data.error || "Ocurrió un error al confirmar tu asistencia.");
+      }
+    } catch {
+      setErrorMessage("Error de conexión. Inténtalo nuevamente.");
+    } finally {
+      setLoadingRegistration(false);
+    }
+  };
+
   return (
     <section id="eventos" className="py-24 sm:py-36 bg-coal border-t border-bone/5">
       <div className="container-x">
@@ -38,7 +186,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
 
           <Reveal delay={0.2}>
             <p className="text-sm text-ash max-w-xs font-light">
-              Acceso prioritario y reservación exclusiva para miembros del Club.
+              Acceso prioritario y dinámica social exclusiva para miembros del Club.
             </p>
           </Reveal>
         </div>
@@ -107,12 +255,13 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-4 pt-4 border-t border-bone/10">
-                    <a
-                      href="#unete"
+                    <button
+                      type="button"
+                      onClick={() => openRsvpModal(event)}
                       className="btn btn-primary flex-1 !min-h-[3rem] !text-xs tracking-[0.2em]"
                     >
-                      RESERVAR
-                    </a>
+                      CONFIRMAR PLAN
+                    </button>
                     <Link
                       href={`/eventos#${event.slug}`}
                       className="btn btn-ghost flex-1 !min-h-[3rem] !text-xs tracking-[0.2em]"
@@ -126,6 +275,242 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
           })}
         </div>
       </div>
+
+      {/* SOCIAL DYNAMIC RSVP MODAL */}
+      {modalOpen && selectedEvent && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-coal border border-bone/20 rounded-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8">
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute top-5 right-5 text-ash hover:text-white transition-colors"
+              aria-label="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Header */}
+            <div>
+              <span className="eyebrow text-ash block mb-1">
+                DINÁMICA SOCIAL · {selectedEvent.name}
+              </span>
+              <h3 className="display text-2xl sm:text-3xl uppercase text-bone tracking-tight">
+                ¿EN QUÉ PLAN VIENES HOY?
+              </h3>
+              <p className="text-xs text-fog font-light mt-1.5 leading-relaxed">
+                Elige la vibra con la que asistes a esta fecha. Te identificaremos al llegar para conectarte con personas en tu misma sintonía.
+              </p>
+            </div>
+
+            {rsvpSuccess ? (
+              /* Success Screen */
+              <div className="p-6 bg-ink border border-bone/20 rounded-xl text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-2xl">
+                  ✓
+                </div>
+
+                <div>
+                  <h4 className="display text-xl text-bone uppercase mb-1">
+                    ¡ASISTENCIA CONFIRMADA!
+                  </h4>
+                  <p className="text-xs text-fog font-light">
+                    Tu acceso para <strong>{selectedEvent.name}</strong> ha quedado registrado.
+                  </p>
+                </div>
+
+                {/* Badge summary */}
+                <div
+                  className={`p-4 rounded-xl border text-left space-y-2 ${SOCIAL_PLAN_DETAILS[selectedPlan].colorClass}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm font-mono flex items-center gap-1.5">
+                      <span>{SOCIAL_PLAN_DETAILS[selectedPlan].emoji}</span>
+                      <span>{SOCIAL_PLAN_DETAILS[selectedPlan].title}</span>
+                    </span>
+                    <span
+                      className={`text-[0.62rem] font-bold px-2 py-0.5 rounded uppercase ${SOCIAL_PLAN_DETAILS[selectedPlan].badgeBg}`}
+                    >
+                      {SOCIAL_PLAN_DETAILS[selectedPlan].wristband}
+                    </span>
+                  </div>
+                  <p className="text-xs font-light">
+                    "{SOCIAL_PLAN_DETAILS[selectedPlan].description}"
+                  </p>
+                  <p className="text-[0.65rem] font-mono text-ash pt-1 border-t border-bone/10">
+                    Muestra tu QR digital en puerta para recibir tu distintivo oficial.
+                  </p>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/mi-membresia"
+                    className="btn btn-primary flex-1 !min-h-[2.75rem] !text-xs tracking-wider"
+                  >
+                    VER MI CREDENCIAL
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="btn btn-ghost flex-1 !min-h-[2.75rem] !text-xs tracking-wider"
+                  >
+                    CERRAR
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Selection Form */
+              <form onSubmit={handleConfirmRsvp} className="space-y-5">
+                {/* 5 Social Plans Cards */}
+                <div className="space-y-2.5">
+                  {(Object.keys(SOCIAL_PLAN_DETAILS) as SocialPlanKey[]).map((key) => {
+                    const plan = SOCIAL_PLAN_DETAILS[key];
+                    const isSelected = selectedPlan === key;
+
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedPlan(key)}
+                        className={`w-full p-4 rounded-xl border text-left transition-all flex items-start justify-between gap-3 ${
+                          isSelected
+                            ? `${plan.colorClass} ring-2 ring-bone/30 shadow-lg scale-[1.01]`
+                            : "bg-ink/60 border-bone/10 text-fog hover:border-bone/25 hover:bg-ink"
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{plan.emoji}</span>
+                            <span className="font-mono text-xs font-bold tracking-wider text-bone uppercase">
+                              {plan.title}
+                            </span>
+                          </div>
+                          <p className="text-xs font-light text-fog leading-relaxed">
+                            "{plan.description}"
+                          </p>
+                        </div>
+
+                        <span
+                          className={`text-[0.62rem] font-mono px-2 py-0.5 rounded uppercase shrink-0 mt-0.5 ${
+                            isSelected ? plan.badgeBg : "bg-bone/10 text-ash"
+                          }`}
+                        >
+                          {plan.wristband}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Privacy clarification note */}
+                <div className="p-3 bg-ink/70 border border-bone/10 rounded-xl text-[0.68rem] text-ash font-light leading-relaxed">
+                  🔒 <strong>Esta dinámica es exclusiva para este evento.</strong> No sobrescribe la situación sentimental de tu perfil privado. Puedes cambiar tu elección en cualquier momento antes o durante el check-in.
+                </div>
+
+                {/* If member is not recognized in localStorage */}
+                {!member && (
+                  <div className="space-y-2 pt-2 border-t border-bone/10">
+                    <label className="field-label !mb-0 text-xs">
+                      TU NÚMERO DE SOCIO O WHATSAPP *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={identifierInput}
+                      onChange={(e) => setIdentifierInput(e.target.value)}
+                      placeholder="Ej: #000128 o 7441234567"
+                      className="field-input"
+                    />
+                    <p className="text-[0.65rem] text-ash">
+                      ¿Aún no eres miembro?{" "}
+                      <a href="#unete" onClick={() => setModalOpen(false)} className="text-bone underline">
+                        Afíliate gratis aquí en 1 minuto
+                      </a>.
+                    </p>
+                  </div>
+                )}
+
+                {/* If member has no birth date, prompt to complete */}
+                {!hasBirthDate && (
+                  <div className="p-4 bg-amber-950/20 border border-amber-500/40 rounded-xl space-y-2">
+                    <span className="text-[0.62rem] font-mono text-amber-400 uppercase tracking-widest block">
+                      COMPLETA TU PERFIL (+18)
+                    </span>
+                    <p className="text-xs text-fog">
+                      Registra tu fecha de nacimiento para recibir tus beneficios de cumpleaños y confirmar acceso:
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        value={bDay}
+                        onChange={(e) => setBDay(e.target.value)}
+                        required
+                        className="field-input !px-2 text-center text-xs"
+                      >
+                        <option value="">Día</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                          <option key={d} value={String(d)}>
+                            {String(d).padStart(2, "0")}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={bMonth}
+                        onChange={(e) => setBMonth(e.target.value)}
+                        required
+                        className="field-input !px-1.5 text-center text-xs"
+                      >
+                        <option value="">Mes</option>
+                        <option value="1">01 · Ene</option>
+                        <option value="2">02 · Feb</option>
+                        <option value="3">03 · Mar</option>
+                        <option value="4">04 · Abr</option>
+                        <option value="5">05 · May</option>
+                        <option value="6">06 · Jun</option>
+                        <option value="7">07 · Jul</option>
+                        <option value="8">08 · Ago</option>
+                        <option value="9">09 · Sep</option>
+                        <option value="10">10 · Oct</option>
+                        <option value="11">11 · Nov</option>
+                        <option value="12">12 · Dic</option>
+                      </select>
+
+                      <select
+                        value={bYear}
+                        onChange={(e) => setBYear(e.target.value)}
+                        required
+                        className="field-input !px-2 text-center text-xs"
+                      >
+                        <option value="">Año</option>
+                        {Array.from(
+                          { length: 80 },
+                          (_, i) => 2008 - i
+                        ).map((yr) => (
+                          <option key={yr} value={String(yr)}>
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <div className="p-3 bg-red-950/70 border border-red-500/40 text-red-300 text-xs font-mono text-center rounded-xl">
+                    {errorMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loadingRegistration}
+                  className="btn btn-primary w-full !min-h-[3.25rem] !text-xs tracking-[0.25em] uppercase font-bold disabled:opacity-50"
+                >
+                  {loadingRegistration ? "CONFIRMANDO..." : "CONFIRMAR ASISTENCIA AL EVENTO"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

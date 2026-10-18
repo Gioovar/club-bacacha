@@ -106,7 +106,7 @@ export default function MemberDetailPage() {
         templateText = `¡Hola ${m.first_name}! Bienvenido oficialmente a Club Bacachá. Tu membresía es la #${m.member_number}. Prepárate para beneficios y experiencias exclusivas.`;
         break;
       case "cumpleanos":
-        templateText = `¡Feliz cumpleaños ${m.first_name} de parte de todo el equipo de Club Bacachá! 🍾 Queremos celebrarte en grande con una cortesía especial en tu próxima visita.`;
+        templateText = `🎂 ¡Feliz cumpleaños, ${m.first_name}! En Club Bacachá queremos celebrar contigo. Tenemos sorpresas especiales para ti. 🥳`;
         break;
       case "reactivacion":
         templateText = `¡${m.first_name}, hace rato que no te vemos en el Club Bacachá! Tenemos nuevas fechas y experiencias en Acapulco. ¿Te reservamos una mesa para este fin de semana?`;
@@ -314,6 +314,18 @@ export default function MemberDetailPage() {
                   <span className="text-neutral-500">Fecha de Nacimiento</span>
                   <span className="text-white">
                     {member.birth_date} {member.age ? `(${member.age} años)` : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-neutral-850">
+                  <span className="text-neutral-500">Situación Sentimental</span>
+                  <span className="text-amber-300">
+                    {member.relationship_status === "SOLTERO"
+                      ? "🍸 Soltero(a)"
+                      : member.relationship_status === "EN_RELACION"
+                      ? "❤️ En una relación"
+                      : member.relationship_status === "CASADO"
+                      ? "💍 Casado(a)"
+                      : "🔒 Prefiero no decir / No especificado"}
                   </span>
                 </div>
               </div>

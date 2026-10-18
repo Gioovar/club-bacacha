@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
   }
 
-  const { data, error } = await admin
+  const { data: events, error } = await admin
     .from("events")
     .select("*")
     .order("event_date", { ascending: true });
@@ -16,7 +16,50 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ events: data });
+  // Fetch checkins and registrations with social plans
+  const { data: allCheckins } = await admin
+    .from("event_checkins")
+    .select("event_id, social_plan");
+
+  const { data: allRegistrations } = await admin
+    .from("event_registrations")
+    .select("event_id, social_plan");
+
+  const enrichedEvents = (events || []).map((evt) => {
+    const checkins = (allCheckins || []).filter((c) => c.event_id === evt.id);
+    const regs = (allRegistrations || []).filter((r) => r.event_id === evt.id);
+
+    const planCounts: Record<string, number> = {
+      PLAN_LIGUE: 0,
+      HACER_AMIGOS: 0,
+      EN_PAREJA: 0,
+      SOLO_DIVERTIRME: 0,
+      SIN_ETIQUETA: 0,
+    };
+
+    // Priority to checkins, fallback to registrations
+    const combinedPlans = [
+      ...regs.map((r) => r.social_plan),
+      ...checkins.map((c) => c.social_plan),
+    ];
+
+    combinedPlans.forEach((p) => {
+      if (p && planCounts[p] !== undefined) {
+        planCounts[p]++;
+      } else if (p) {
+        planCounts.SIN_ETIQUETA++;
+      }
+    });
+
+    return {
+      ...evt,
+      checkinsCount: checkins.length,
+      registrationsCount: regs.length,
+      socialPlans: planCounts,
+    };
+  });
+
+  return NextResponse.json({ events: enrichedEvents });
 }
 
 export async function POST(req: NextRequest) {

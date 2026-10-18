@@ -15,6 +15,21 @@ export default function MiMembresiaPage() {
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Private profile state (birth date & relationship status)
+  const [profile, setProfile] = useState<{
+    birthDate: string | null;
+    relationshipStatus: string;
+    city?: string;
+  } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ text: string; error?: boolean } | null>(null);
+
+  // Birthday completion sub-state
+  const [bDay, setBDay] = useState("");
+  const [bMonth, setBMonth] = useState("");
+  const [bYear, setBYear] = useState("");
+  const [savingBirthday, setSavingBirthday] = useState(false);
+
   // Passwordless login state
   const [emailInput, setEmailInput] = useState("");
   const [otpToken, setOtpToken] = useState("");
@@ -26,7 +41,88 @@ export default function MiMembresiaPage() {
     const m = loadMember();
     setMember(m);
     setLoaded(true);
+
+    if (m?.qrToken) {
+      setProfileLoading(true);
+      fetch(`/api/members/profile?qrToken=${encodeURIComponent(m.qrToken)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.member) {
+            setProfile({
+              birthDate: data.member.birthDate,
+              relationshipStatus: data.member.relationshipStatus || "PREFIERO_NO_DECIR",
+              city: data.member.city,
+            });
+            if (data.member.birthDate) {
+              const [y, m, d] = data.member.birthDate.split("-");
+              setBYear(y);
+              setBMonth(String(Number(m)));
+              setBDay(String(Number(d)));
+            }
+          }
+        })
+        .finally(() => setProfileLoading(false));
+    }
   }, []);
+
+  const handleUpdateRelationship = async (status: string) => {
+    if (!member) return;
+    setProfileMsg(null);
+    try {
+      const res = await fetch("/api/members/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: member.qrToken,
+          relationshipStatus: status,
+        }),
+      });
+      if (res.ok) {
+        setProfile((prev) => prev ? { ...prev, relationshipStatus: status } : null);
+        setProfileMsg({ text: "Situación sentimental actualizada correctamente ✓" });
+        setTimeout(() => setProfileMsg(null), 4000);
+      } else {
+        const err = await res.json();
+        setProfileMsg({ text: err.error || "No se pudo actualizar", error: true });
+      }
+    } catch {
+      setProfileMsg({ text: "Error de conexión", error: true });
+    }
+  };
+
+  const handleSaveBirthday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!member || !bDay || !bMonth || !bYear) return;
+
+    setSavingBirthday(true);
+    setProfileMsg(null);
+
+    const d = bDay.padStart(2, "0");
+    const m = bMonth.padStart(2, "0");
+    const iso = `${bYear}-${m}-${d}`;
+
+    try {
+      const res = await fetch("/api/members/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: member.qrToken,
+          birthDate: iso,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfile((prev) => prev ? { ...prev, birthDate: iso } : null);
+        setProfileMsg({ text: "🎂 ¡Fecha de cumpleaños registrada! Celebraremos contigo en grande." });
+      } else {
+        setProfileMsg({ text: data.error || "Error al guardar fecha", error: true });
+      }
+    } catch {
+      setProfileMsg({ text: "Error de conexión", error: true });
+    } finally {
+      setSavingBirthday(false);
+    }
+  };
 
   const handleCopy = async () => {
     if (!member) return;
@@ -136,6 +232,164 @@ export default function MiMembresiaPage() {
                 <p className="text-[0.65rem] tracking-[0.25em] uppercase text-ash text-center mt-6">
                   Muestra tu QR en puerta o barra para validar beneficios
                 </p>
+              </div>
+
+              {/* Feedback toast / notification */}
+              {profileMsg && (
+                <div
+                  className={`p-4 rounded-xl border text-center text-xs font-mono transition-all ${
+                    profileMsg.error
+                      ? "bg-red-950/70 border-red-500/40 text-red-300"
+                      : "bg-emerald-950/70 border-emerald-500/40 text-emerald-300"
+                  }`}
+                >
+                  {profileMsg.text}
+                </div>
+              )}
+
+              {/* Prompt to complete birth date if missing */}
+              {profile && !profile.birthDate && (
+                <div className="p-6 sm:p-8 bg-amber-950/20 border border-amber-500/40 rounded-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none text-6xl">
+                    🎂
+                  </div>
+                  <div className="max-w-xl">
+                    <span className="text-[0.65rem] font-mono tracking-[0.25em] uppercase text-amber-400 block mb-1">
+                      CELEBREMOS JUNTOS
+                    </span>
+                    <h3 className="display text-2xl uppercase text-bone mb-2">
+                      COMPLETA TU FECHA DE NACIMIENTO
+                    </h3>
+                    <p className="text-xs sm:text-sm text-fog font-light leading-relaxed mb-6">
+                      Registra tu fecha de nacimiento (+18) para recibir botellas de cortesía, beneficios VIP y felicitaciones especiales el día de tu cumpleaños.
+                    </p>
+
+                    <form onSubmit={handleSaveBirthday} className="space-y-4">
+                      <div className="grid grid-cols-3 gap-2 max-w-sm">
+                        <select
+                          value={bDay}
+                          onChange={(e) => setBDay(e.target.value)}
+                          required
+                          className="field-input !px-2 text-center text-xs"
+                        >
+                          <option value="">Día</option>
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                            <option key={d} value={String(d)}>
+                              {String(d).padStart(2, "0")}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={bMonth}
+                          onChange={(e) => setBMonth(e.target.value)}
+                          required
+                          className="field-input !px-1.5 text-center text-xs"
+                        >
+                          <option value="">Mes</option>
+                          <option value="1">01 · Ene</option>
+                          <option value="2">02 · Feb</option>
+                          <option value="3">03 · Mar</option>
+                          <option value="4">04 · Abr</option>
+                          <option value="5">05 · May</option>
+                          <option value="6">06 · Jun</option>
+                          <option value="7">07 · Jul</option>
+                          <option value="8">08 · Ago</option>
+                          <option value="9">09 · Sep</option>
+                          <option value="10">10 · Oct</option>
+                          <option value="11">11 · Nov</option>
+                          <option value="12">12 · Dic</option>
+                        </select>
+
+                        <select
+                          value={bYear}
+                          onChange={(e) => setBYear(e.target.value)}
+                          required
+                          className="field-input !px-2 text-center text-xs"
+                        >
+                          <option value="">Año</option>
+                          {Array.from(
+                            { length: 80 },
+                            (_, i) => 2008 - i
+                          ).map((yr) => (
+                            <option key={yr} value={String(yr)}>
+                              {yr}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={savingBirthday || !bDay || !bMonth || !bYear}
+                        className="btn btn-primary !min-h-[2.75rem] !px-6 text-xs tracking-widest uppercase disabled:opacity-50"
+                      >
+                        {savingBirthday ? "GUARDANDO..." : "GUARDAR FECHA DE CUMPLEAÑOS"}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Private Profile Settings: Relationship Status & Birthday summary */}
+              <div className="p-6 sm:p-8 bg-coal border border-bone/10 rounded-xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-bone/10">
+                  <div>
+                    <span className="text-[0.62rem] font-mono tracking-widest uppercase text-ash block">
+                      CONFIGURACIÓN PERSONAL
+                    </span>
+                    <h3 className="display text-xl uppercase text-bone">
+                      TU PERFIL PRIVADO
+                    </h3>
+                  </div>
+                  {profile?.birthDate && (
+                    <div className="text-xs font-mono text-amber-300 bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full inline-flex items-center gap-1.5 self-start">
+                      <span>🎂 Cumpleaños: {profile.birthDate.split("-").reverse().join("/")}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-bone tracking-wider uppercase">
+                      ¿CUÁL ES TU SITUACIÓN SENTIMENTAL?
+                    </label>
+                    <span className="text-[0.62rem] font-mono text-ash uppercase">
+                      Privado en tu cuenta
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { value: "SOLTERO", label: "Soltero(a)", icon: "🍸" },
+                      { value: "EN_RELACION", label: "En una relación", icon: "❤️" },
+                      { value: "CASADO", label: "Casado(a)", icon: "💍" },
+                      { value: "PREFIERO_NO_DECIR", label: "Prefiero no decir", icon: "🔒" },
+                    ].map((opt) => {
+                      const isSelected = profile?.relationshipStatus === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => handleUpdateRelationship(opt.value)}
+                          className={`p-3 rounded-lg border text-left flex flex-col justify-between transition-all ${
+                            isSelected
+                              ? "bg-amber-400/15 border-amber-400 text-bone shadow-md shadow-amber-400/10 ring-1 ring-amber-400"
+                              : "bg-ink/60 border-bone/10 text-fog hover:border-bone/30"
+                          }`}
+                        >
+                          <span className="text-lg mb-1">{opt.icon}</span>
+                          <span className="text-xs font-mono font-medium">
+                            {opt.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[0.68rem] text-ash font-light">
+                    Esta información es confidencial y no se exhibe en tu credencial. En cada evento podrás elegir independientemente con qué plan asistes (ligue, amigos, fiesta o privado).
+                  </p>
+                </div>
               </div>
 
               {/* Referrals & Invites */}
