@@ -43,10 +43,44 @@ export async function getUpcomingEvents(limit?: number): Promise<ClubEvent[]> {
     }
   }
 
-  const items = demoContent.events.items
-    .filter((e) => e.status === "published" || e.status === "sold_out")
-    .sort((a, b) => a.date.localeCompare(b.date));
-  return typeof limit === "number" ? items.slice(0, limit) : items;
+  return [];
+}
+
+export async function getActiveBenefits() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("benefits");
+
+  const supabase = createAdminClient();
+  if (supabase) {
+    try {
+      const { data: dbBenefits, error } = await supabase
+        .from("benefits")
+        .select("*")
+        .eq("active", true)
+        .order("created_at", { ascending: true });
+
+      if (!error && dbBenefits && dbBenefits.length > 0) {
+        return dbBenefits.map((b) => ({
+          id: b.id,
+          slug: b.slug || b.id,
+          title: b.title,
+          phrase: b.phrase,
+          active: Boolean(b.active),
+          image: {
+            src: b.image_url || "/images/bartender_pour.jpg",
+            alt: b.title,
+            width: 1200,
+            height: 1600,
+          },
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching benefits from Supabase:", err);
+    }
+  }
+
+  return [];
 }
 
 export async function getSiteContent(): Promise<SiteContent> {
@@ -54,13 +88,20 @@ export async function getSiteContent(): Promise<SiteContent> {
   cacheLife("minutes");
   cacheTag("site-content");
 
-  const realEvents = await getUpcomingEvents();
+  const [realEvents, realBenefits] = await Promise.all([
+    getUpcomingEvents(),
+    getActiveBenefits(),
+  ]);
 
   return {
     ...demoContent,
     events: {
       ...demoContent.events,
       items: realEvents,
+    },
+    benefits: {
+      ...demoContent.benefits,
+      items: realBenefits.length > 0 ? realBenefits : demoContent.benefits.items,
     },
   };
 }

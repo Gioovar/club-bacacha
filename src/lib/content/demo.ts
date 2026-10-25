@@ -101,21 +101,7 @@ export const demoContent: SiteContent = {
   events: {
     eyebrow: "Próximo Evento Oficial",
     titleLines: ["Gran Inauguración", "Acapulco"],
-    items: [
-      {
-        id: "e1",
-        slug: "gran-inauguracion",
-        name: "Gran Inauguración Club Bacachá",
-        description: "La apertura oficial del Club en Acapulco. Botellas a $599, Mojitos 2x1 y la dinámica del semáforo para conectar con toda la comunidad.",
-        image: IMAGES.inauguration,
-        venue: "Costera Miguel Alemán · Acapulco",
-        city: "Acapulco",
-        date: "2026-11-06",
-        time: "21:00",
-        status: "published",
-        membersOnly: true,
-      },
-    ],
+    items: [],
   },
   registration: {
     eyebrow: "Registro",
