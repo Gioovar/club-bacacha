@@ -102,6 +102,7 @@ export function BenefitsSlider({ eyebrow, titleLines, items }: Props) {
                   src={benefit.image.src}
                   alt={benefit.image.alt}
                   fill
+                  unoptimized={Boolean(benefit.image.src?.startsWith("http"))}
                   sizes="(max-width: 640px) 80vw, 420px"
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   style={{ objectPosition: benefit.image.focal || "50% 50%" }}

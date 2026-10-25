@@ -671,6 +671,7 @@ export default function AdminBenefitsPage() {
                     src={b.image_url || "/images/gran_inauguracion.png"}
                     alt={b.title}
                     fill
+                    unoptimized
                     sizes="(max-width: 640px) 100vw, 420px"
                     className="object-cover"
                   />
@@ -999,6 +1000,7 @@ export default function AdminBenefitsPage() {
                       src={formData.image_url || "/images/gran_inauguracion.png"}
                       alt="Flyer preview"
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                   </div>
@@ -1383,6 +1385,7 @@ export default function AdminBenefitsPage() {
                   src={selectedBenefit.image_url || "/images/gran_inauguracion.png"}
                   alt={selectedBenefit.title}
                   fill
+                  unoptimized
                   className="object-cover"
                 />
               </div>
