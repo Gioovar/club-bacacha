@@ -157,7 +157,7 @@ export default function AdminBirthdaysPage() {
 
   const handleOpenWhatsApp = () => {
     if (!greetingMember) return;
-    const cleanPhone = greetingMember.phone.replace(/\D/g, "");
+    const cleanPhone = (greetingMember.phone || "").replace(/\D/g, "");
     const waUrl = `https://wa.me/${cleanPhone.startsWith("52") ? cleanPhone : "52" + cleanPhone}?text=${encodeURIComponent(greetingText)}`;
     window.open(waUrl, "_blank");
   };

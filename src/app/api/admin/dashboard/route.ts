@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // 1. Total members and list for aggregation
     const { data: members, error: mErr } = await supabase
       .from("members")
-      .select("id, member_number, first_name, last_name, email, city, birth_date, created_at, status, membership_level, utm_campaign, source, referred_by")
+      .select("id, member_number, first_name, last_name, email, phone, city, birth_date, created_at, status, membership_level, utm_campaign, source, referred_by")
       .order("created_at", { ascending: false });
 
     if (mErr) {
@@ -155,7 +155,9 @@ export async function GET(req: NextRequest) {
     for (let i = 13; i >= 0; i--) {
       const d = new Date(Date.now() - i * 24 * 3600 * 1000);
       const dateStr = d.toISOString().split("T")[0];
-      const count = allMembers.filter((m) => m.created_at.startsWith(dateStr)).length;
+      const count = allMembers.filter(
+        (m) => m.created_at && typeof m.created_at === "string" && m.created_at.startsWith(dateStr)
+      ).length;
       dailyRegistrations.push({ date: dateStr, count });
     }
 

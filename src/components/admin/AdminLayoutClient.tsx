@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminSidebar, NAV_ITEMS } from "./AdminSidebar";
 import { AdminLoginGate } from "./AdminLoginGate";
-import { Menu, RefreshCw, Bell, Search } from "lucide-react";
+import { Menu, RefreshCw, Bell, Search, LogOut } from "lucide-react";
 
 interface AdminUser {
   id: string;
@@ -133,6 +133,15 @@ export function AdminLayoutClient({ children }: Props) {
               className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isPending ? "animate-spin text-amber-400" : ""}`} />
+            </button>
+
+            <button
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              className="px-2.5 py-1.5 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-neutral-900 transition-colors flex items-center gap-1.5 text-xs font-mono"
+            >
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
             </button>
 
             <div className="h-4 w-px bg-neutral-800" />

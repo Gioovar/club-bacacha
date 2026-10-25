@@ -86,7 +86,10 @@ export default function AdminDashboardPage() {
     totalInteractions: 0,
   };
 
-  const maxDaily = Math.max(1, ...(data?.dailyRegistrations.map((d) => d.count) || [1]));
+  const maxDaily = Math.max(
+    1,
+    ...(data?.dailyRegistrations?.map((d) => d.count) || [1])
+  );
 
   return (
     <div className="space-y-8">
@@ -217,7 +220,7 @@ export default function AdminDashboardPage() {
 
           {/* Bar Chart Container */}
           <div className="h-48 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-neutral-850">
-            {data?.dailyRegistrations.map((d) => {
+            {(data?.dailyRegistrations || []).map((d) => {
               const heightPercent = Math.max(8, Math.round((d.count / maxDaily) * 100));
               const isToday = d.date === new Date().toISOString().split("T")[0];
 
@@ -334,8 +337,8 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <a
-                    href={`https://wa.me/${m.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                      `¡Feliz cumpleaños ${m.first_name} de parte del Club Bacachá! 🍾 Queremos celebrarte en grande con una cortesía especial en tu próxima visita.`
+                    href={`https://wa.me/${(m.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `¡Feliz cumpleaños ${m.first_name || ""} de parte del Club Bacachá! 🍾 Queremos celebrarte en grande con una cortesía especial en tu próxima visita.`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -381,15 +384,15 @@ export default function AdminDashboardPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center font-mono text-xs font-semibold text-amber-400">
-                      {m.first_name[0]}
-                      {m.last_name[0]}
+                      {(m.first_name || "M")[0]}
+                      {(m.last_name || "B")[0]}
                     </div>
                     <div className="flex flex-col">
                       <span className="text-xs font-medium text-white group-hover:text-amber-300 transition-colors">
                         {m.first_name} {m.last_name}
                       </span>
                       <span className="text-[0.65rem] font-mono text-neutral-400">
-                        #{m.member_number} · {m.city} · {new Date(m.created_at).toLocaleDateString()}
+                        #{m.member_number} · {m.city || "Sin ciudad"} · {m.created_at ? new Date(m.created_at).toLocaleDateString() : ""}
                       </span>
                     </div>
                   </div>
