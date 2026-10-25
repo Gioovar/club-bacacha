@@ -6,7 +6,7 @@ import { Header } from "@/components/navigation/Header";
 import { Footer } from "@/components/navigation/Footer";
 import { MemberCard } from "@/components/member/MemberCard";
 import { loadMember, saveMember, clearMember } from "@/lib/members/client-store";
-import type { PublicMember } from "@/lib/members/types";
+import type { PublicMember, LoyaltyReward, LoyaltyTransaction, LoyaltyRedemption } from "@/lib/members/types";
 import { referralUrl } from "@/lib/site";
 import { demoContent } from "@/lib/content/demo";
 
@@ -29,6 +29,20 @@ export default function MiMembresiaPage() {
   const [bMonth, setBMonth] = useState("");
   const [bYear, setBYear] = useState("");
   const [savingBirthday, setSavingBirthday] = useState(false);
+
+  // Loyalty wallet state
+  const [loyaltyData, setLoyaltyData] = useState<{
+    pointsBalance: number;
+    transactions: LoyaltyTransaction[];
+    rewards: LoyaltyReward[];
+    redemptions: LoyaltyRedemption[];
+  } | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [loyaltyTab, setLoyaltyTab] = useState<"rewards" | "history" | "vouchers">("rewards");
+  const [selectedRewardToRedeem, setSelectedRewardToRedeem] = useState<LoyaltyReward | null>(null);
+  const [redeemSuccessVoucher, setRedeemSuccessVoucher] = useState<LoyaltyRedemption | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeeming, setRedeeming] = useState(false);
 
   // Passwordless login state
   const [emailInput, setEmailInput] = useState("");
@@ -62,6 +76,15 @@ export default function MiMembresiaPage() {
           }
         })
         .finally(() => setProfileLoading(false));
+
+      // Fetch loyalty data
+      setLoyaltyLoading(true);
+      fetch(`/api/members/loyalty?qrToken=${encodeURIComponent(m.qrToken)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) setLoyaltyData(data);
+        })
+        .finally(() => setLoyaltyLoading(false));
     }
   }, []);
 
@@ -186,6 +209,52 @@ export default function MiMembresiaPage() {
     }
   };
 
+  const handleConfirmRedeem = async (reward: LoyaltyReward) => {
+    if (!member) return;
+    setRedeemError(null);
+    setRedeeming(true);
+    try {
+      const res = await fetch("/api/members/loyalty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrToken: member.qrToken, rewardId: reward.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLoyaltyData((prev) =>
+          prev
+            ? {
+                ...prev,
+                pointsBalance: data.pointsBalance,
+                redemptions: [data.redemption, ...(prev.redemptions || [])],
+                transactions: [
+                  {
+                    id: "tx-" + Date.now(),
+                    memberId: member.qrToken,
+                    amount: -reward.pointsCost,
+                    balanceAfter: data.pointsBalance,
+                    type: "PURCHASE_REWARD",
+                    description: `Canje: ${reward.title}`,
+                    createdAt: new Date().toISOString(),
+                  },
+                  ...(prev.transactions || []),
+                ],
+              }
+            : null
+        );
+        setSelectedRewardToRedeem(null);
+        setRedeemSuccessVoucher(data.redemption);
+        setLoyaltyTab("vouchers");
+      } else {
+        setRedeemError(data.error || "No se pudo realizar el canje.");
+      }
+    } catch {
+      setRedeemError("Error de conexión al procesar el canje.");
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
   return (
     <>
       <Header />
@@ -221,18 +290,367 @@ export default function MiMembresiaPage() {
                 </div>
               </div>
 
-              {/* 3D Member Card Showcase */}
+              {/* 3D Member Card Showcase with Points */}
               <div className="max-w-md mx-auto py-4">
                 <MemberCard
                   firstName={member.firstName}
                   memberNumber={member.memberNumber}
                   since={member.since}
                   qrToken={member.qrToken}
+                  tier={member.tier}
+                  pointsBalance={loyaltyData ? loyaltyData.pointsBalance : 50}
                 />
                 <p className="text-[0.65rem] tracking-[0.25em] uppercase text-ash text-center mt-6">
-                  Muestra tu QR en puerta o barra para validar beneficios
+                  Muestra tu QR en puerta o barra para sumar puntos y validar beneficios
                 </p>
               </div>
+
+              {/* LOYALTY POINTS WALLET & REWARDS CATALOG */}
+              <div className="p-6 sm:p-8 bg-coal border border-bone/15 rounded-2xl space-y-8 shadow-2xl relative overflow-hidden">
+                {/* Background glow */}
+                <div className="absolute top-0 right-0 w-72 h-72 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Wallet Balance Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-bone/10 relative z-10">
+                  <div>
+                    <span className="text-[0.62rem] font-mono tracking-[0.3em] uppercase text-amber-400 block mb-1">
+                      BILLETERA DE LEALTAD
+                    </span>
+                    <h2 className="display text-2xl sm:text-3xl text-bone uppercase tracking-tight">
+                      PUNTOS & RECOMPENSAS
+                    </h2>
+                    <p className="text-xs text-fog font-light mt-1 max-w-md leading-relaxed">
+                      Acumula puntos por tu asistencia a eventos, invitaciones a amigos y dinámicas exclusivas del Club.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4 bg-ink/80 border border-amber-400/30 rounded-xl px-5 py-3 shadow-inner">
+                    <div className="w-10 h-10 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-xl font-bold">
+                      ★
+                    </div>
+                    <div>
+                      <span className="text-[0.6rem] font-mono uppercase text-ash tracking-widest block">
+                        SALDO DISPONIBLE
+                      </span>
+                      <span className="display text-3xl text-amber-300 font-bold tracking-tight">
+                        {loyaltyData ? loyaltyData.pointsBalance : 50}{" "}
+                        <span className="text-sm font-mono font-normal text-amber-400/80">PTS</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-Tabs: Premios / Vouchers / Historial */}
+                <div className="flex items-center gap-2 border-b border-bone/10 pb-4 overflow-x-auto no-scrollbar">
+                  {[
+                    { id: "rewards", label: "🎁 Catálogo de Premios", count: loyaltyData?.rewards.length || 5 },
+                    { id: "vouchers", label: "🎟️ Mis Canjes", count: loyaltyData?.redemptions.length || 0 },
+                    { id: "history", label: "📜 Historial de Puntos", count: loyaltyData?.transactions.length || 1 },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setLoyaltyTab(tab.id as any)}
+                      className={`px-4 py-2 rounded-xl text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
+                        loyaltyTab === tab.id
+                          ? "bg-bone text-ink font-bold shadow-md"
+                          : "bg-ink/60 text-ash hover:text-white hover:bg-ink border border-bone/5"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span
+                        className={`text-[0.62rem] px-1.5 py-0.2 rounded-full ${
+                          loyaltyTab === tab.id ? "bg-ink text-bone" : "bg-bone/10 text-ash"
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* TAB 1: REWARDS CATALOG */}
+                {loyaltyTab === "rewards" && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {(loyaltyData?.rewards || []).map((reward) => {
+                        const curBalance = loyaltyData ? loyaltyData.pointsBalance : 50;
+                        const canAfford = curBalance >= reward.pointsCost;
+
+                        return (
+                          <div
+                            key={reward.id}
+                            className="bg-ink/80 border border-bone/10 hover:border-amber-400/40 rounded-xl p-5 flex flex-col justify-between transition-all group shadow-md"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[0.6rem] font-mono tracking-widest text-amber-400 uppercase px-2 py-0.5 rounded bg-amber-400/10">
+                                  {reward.category}
+                                </span>
+                                <span className="display text-lg text-amber-300 font-bold font-mono">
+                                  {reward.pointsCost} PTS
+                                </span>
+                              </div>
+
+                              <h3 className="display text-lg text-bone uppercase group-hover:text-amber-200 transition-colors">
+                                {reward.title}
+                              </h3>
+
+                              <p className="text-xs text-fog font-light leading-relaxed">
+                                {reward.description}
+                              </p>
+
+                              {reward.terms && (
+                                <p className="text-[0.65rem] text-ash/80 font-mono pt-2 border-t border-bone/5">
+                                  ℹ️ {reward.terms}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-5 mt-4 border-t border-bone/10 flex items-center justify-between gap-3">
+                              <span
+                                className={`text-[0.65rem] font-mono ${
+                                  canAfford ? "text-emerald-400" : "text-ash"
+                                }`}
+                              >
+                                {canAfford ? "✓ Puntos suficientes" : `Faltan ${reward.pointsCost - curBalance} pts`}
+                              </span>
+
+                              <button
+                                type="button"
+                                disabled={!canAfford}
+                                onClick={() => setSelectedRewardToRedeem(reward)}
+                                className={`px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider font-semibold transition-all ${
+                                  canAfford
+                                    ? "bg-amber-400 text-black hover:bg-amber-300 shadow-lg shadow-amber-400/20"
+                                    : "bg-bone/10 text-ash/60 cursor-not-allowed"
+                                }`}
+                              >
+                                Canjear
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: VOUCHERS / REDEMPTIONS */}
+                {loyaltyTab === "vouchers" && (
+                  <div className="space-y-4">
+                    {(!loyaltyData?.redemptions || loyaltyData.redemptions.length === 0) ? (
+                      <div className="p-8 text-center bg-ink/40 border border-bone/10 rounded-xl space-y-2">
+                        <span className="text-2xl block">🎟️</span>
+                        <p className="text-xs font-mono text-ash uppercase tracking-wider">
+                          Aún no has solicitado canjes de premios
+                        </p>
+                        <p className="text-xs text-fog font-light max-w-sm mx-auto">
+                          Explora el catálogo oficial y utiliza tus puntos disponibles para desbloquear playeras, botellas y accesos VIP.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {loyaltyData.redemptions.map((red) => (
+                          <div
+                            key={red.id}
+                            className="p-5 rounded-xl bg-ink border border-amber-400/30 space-y-3 relative overflow-hidden"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[0.62rem] font-mono px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 font-bold uppercase">
+                                VOUCHER DE CANJE
+                              </span>
+                              <span
+                                className={`text-[0.62rem] font-mono px-2 py-0.5 rounded uppercase font-bold ${
+                                  red.status === "FULFILLED"
+                                    ? "bg-emerald-400/20 text-emerald-300 border border-emerald-400/40"
+                                    : "bg-amber-400/20 text-amber-300 border border-amber-400/40"
+                                }`}
+                              >
+                                {red.status === "FULFILLED" ? "ENTREGADO ✓" : "PENDIENTE DE ENTREGA"}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h4 className="display text-xl text-bone uppercase">
+                                {red.rewardTitle}
+                              </h4>
+                              <p className="text-xs text-ash font-mono mt-0.5">
+                                Canjeado: {new Date(red.createdAt).toLocaleDateString()} · {red.pointsSpent} pts
+                              </p>
+                            </div>
+
+                            <div className="p-3 bg-coal rounded-lg border border-bone/10 flex items-center justify-between">
+                              <div>
+                                <span className="text-[0.58rem] font-mono uppercase text-ash block">
+                                  CÓDIGO DE VALIDACIÓN
+                                </span>
+                                <span className="font-mono text-base font-bold text-bone tracking-widest">
+                                  {red.redemptionCode}
+                                </span>
+                              </div>
+                              <span className="text-xs text-amber-400 font-mono">
+                                Presentar en barra
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: TRANSACTION HISTORY */}
+                {loyaltyTab === "history" && (
+                  <div className="space-y-3">
+                    {(!loyaltyData?.transactions || loyaltyData.transactions.length === 0) ? (
+                      <p className="text-xs font-mono text-ash text-center py-6">
+                        Sin transacciones registradas
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {loyaltyData.transactions.map((tx) => (
+                          <div
+                            key={tx.id}
+                            className="p-3.5 rounded-xl bg-ink/70 border border-bone/10 flex items-center justify-between text-xs font-mono"
+                          >
+                            <div className="space-y-0.5">
+                              <span className="text-bone font-medium block">
+                                {tx.description}
+                              </span>
+                              <span className="text-[0.65rem] text-ash">
+                                {new Date(tx.createdAt).toLocaleString("es-MX")} · Tipo: {tx.type}
+                              </span>
+                            </div>
+
+                            <div className="text-right">
+                              <span
+                                className={`text-sm font-bold block ${
+                                  tx.amount >= 0 ? "text-emerald-400" : "text-amber-400"
+                                }`}
+                              >
+                                {tx.amount > 0 ? `+${tx.amount}` : tx.amount} PTS
+                              </span>
+                              <span className="text-[0.62rem] text-ash">
+                                Saldo: {tx.balanceAfter} pts
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REDEMPTION CONFIRMATION MODAL */}
+              {selectedRewardToRedeem && (
+                <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="bg-coal border border-bone/20 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl relative">
+                    <button
+                      onClick={() => setSelectedRewardToRedeem(null)}
+                      className="absolute top-4 right-4 text-ash hover:text-white"
+                    >
+                      ✕
+                    </button>
+
+                    <div>
+                      <span className="text-[0.62rem] font-mono text-amber-400 uppercase tracking-widest block mb-1">
+                        CONFIRMAR CANJE DE PREMIO
+                      </span>
+                      <h3 className="display text-2xl uppercase text-bone">
+                        {selectedRewardToRedeem.title}
+                      </h3>
+                      <p className="text-xs text-fog font-light mt-1 leading-relaxed">
+                        {selectedRewardToRedeem.description}
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-ink rounded-xl border border-bone/10 space-y-2 text-xs font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-ash">Saldo actual:</span>
+                        <span className="text-bone">{loyaltyData?.pointsBalance ?? 50} pts</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-ash">Costo del premio:</span>
+                        <span className="text-amber-400">-{selectedRewardToRedeem.pointsCost} pts</span>
+                      </div>
+                      <div className="flex justify-between border-t border-bone/10 pt-2 font-bold">
+                        <span className="text-bone">Saldo restante:</span>
+                        <span className="text-emerald-400">
+                          {(loyaltyData?.pointsBalance ?? 50) - selectedRewardToRedeem.pointsCost} pts
+                        </span>
+                      </div>
+                    </div>
+
+                    {redeemError && (
+                      <div className="p-3 bg-red-950/70 border border-red-500/40 text-red-300 text-xs text-center rounded-xl font-mono">
+                        {redeemError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRewardToRedeem(null)}
+                        className="btn btn-ghost flex-1 !min-h-[3rem] !text-xs tracking-wider"
+                      >
+                        CANCELAR
+                      </button>
+                      <button
+                        type="button"
+                        disabled={redeeming}
+                        onClick={() => handleConfirmRedeem(selectedRewardToRedeem)}
+                        className="btn btn-primary flex-1 !min-h-[3rem] !text-xs tracking-wider uppercase font-bold disabled:opacity-50"
+                      >
+                        {redeeming ? "PROCESANDO..." : "CONFIRMAR CANJE"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUCCESS VOUCHER MODAL */}
+              {redeemSuccessVoucher && (
+                <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="bg-coal border border-amber-400/40 rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl text-center relative">
+                    <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-3xl">
+                      ✓
+                    </div>
+
+                    <div>
+                      <span className="text-[0.65rem] font-mono text-amber-400 uppercase tracking-widest block mb-1">
+                        ¡CANJE EXITOSO!
+                      </span>
+                      <h3 className="display text-2xl uppercase text-bone">
+                        {redeemSuccessVoucher.rewardTitle}
+                      </h3>
+                      <p className="text-xs text-fog font-light mt-1">
+                        Tu premio ha sido solicitado y registrado en tu cuenta.
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-ink rounded-xl border border-bone/20 space-y-2">
+                      <span className="text-[0.62rem] font-mono text-ash uppercase tracking-wider block">
+                        CÓDIGO OFICIAL DE CANJE
+                      </span>
+                      <span className="display text-3xl text-bone font-mono font-bold tracking-widest">
+                        {redeemSuccessVoucher.redemptionCode}
+                      </span>
+                      <p className="text-[0.65rem] text-ash font-light pt-1">
+                        Muestra este código o tu QR de membresía en barra/puerta del Club para recibir tu premio.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setRedeemSuccessVoucher(null)}
+                      className="btn btn-primary w-full !min-h-[3rem] text-xs tracking-widest uppercase font-bold"
+                    >
+                      ENTENDIDO · VER MIS VOUCHERS
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Feedback toast / notification */}
               {profileMsg && (

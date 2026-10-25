@@ -58,19 +58,19 @@ export function ManifestoSection({ content }: Props) {
             </Reveal>
           </div>
 
-          {/* Photo Column: Unmarked Door / Mysterious Entry */}
+          {/* Photo Column: Event Poster */}
           <div className="lg:col-span-5 relative mt-6 lg:mt-0">
-            <div className="relative max-w-md mx-auto aspect-[3/4] w-full">
+            <div className="relative max-w-md mx-auto aspect-[4/5] w-full">
               <ImageReveal
                 image={content.image}
                 sizes="(max-width: 1024px) 100vw, 40vw"
-                speed={0.12}
+                speed={0}
                 cursorLabel="ENTRAR"
                 className="w-full h-full shadow-2xl"
               />
               {/* Discrete Caption */}
               <div className="absolute -bottom-6 right-0 text-[0.6rem] tracking-[0.3em] uppercase text-ash/60">
-                Acapulco Secreto
+                Gran Inauguración · Acapulco
               </div>
             </div>
           </div>

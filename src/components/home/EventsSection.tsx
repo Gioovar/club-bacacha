@@ -18,45 +18,29 @@ type Props = {
 };
 
 export const SOCIAL_PLAN_DETAILS = {
-  PLAN_LIGUE: {
-    emoji: "💚",
-    title: "PLAN DE LIGUE",
-    description: "Me gustaría conocer a alguien especial",
-    wristband: "Pulsera Verde",
-    colorClass: "bg-emerald-950/80 border-emerald-400 text-emerald-200",
-    badgeBg: "bg-emerald-400 text-black",
+  EN_PAREJA: {
+    emoji: "🔴",
+    title: "ESTOY CON PAREJA",
+    description: "Vengo con mi pareja a disfrutar la noche",
+    wristband: "Pulsera Roja",
+    colorClass: "bg-red-950/80 border-red-500 text-red-200",
+    badgeBg: "bg-red-500 text-white font-bold",
   },
   HACER_AMIGOS: {
-    emoji: "💙",
-    title: "HACER AMIGOS",
-    description: "Quiero conocer gente nueva y hacer amigos",
-    wristband: "Pulsera Azul",
-    colorClass: "bg-blue-950/80 border-blue-400 text-blue-200",
-    badgeBg: "bg-blue-400 text-black",
-  },
-  EN_PAREJA: {
-    emoji: "💜",
-    title: "EN PAREJA",
-    description: "Vengo con mi pareja a disfrutar",
-    wristband: "Pulsera Morada",
-    colorClass: "bg-purple-950/80 border-purple-400 text-purple-200",
-    badgeBg: "bg-purple-400 text-black",
-  },
-  SOLO_DIVERTIRME: {
-    emoji: "💛",
-    title: "SOLO A DIVERTIRME",
-    description: "Vengo a disfrutar la fiesta",
+    emoji: "🟡",
+    title: "VENGO A HACER AMIGOS",
+    description: "Quiero conocer gente nueva y ampliar mi círculo",
     wristband: "Pulsera Amarilla",
     colorClass: "bg-amber-950/80 border-amber-400 text-amber-200",
-    badgeBg: "bg-amber-400 text-black",
+    badgeBg: "bg-amber-400 text-black font-bold",
   },
-  SIN_ETIQUETA: {
-    emoji: "⚪",
-    title: "SIN ETIQUETA",
-    description: "Prefiero mantener mi plan privado",
-    wristband: "Sin pulsera / Neutra",
-    colorClass: "bg-neutral-900 border-neutral-600 text-neutral-300",
-    badgeBg: "bg-neutral-700 text-white",
+  PLAN_LIGUE: {
+    emoji: "🟢",
+    title: "EN BUSCA DE PAREJA",
+    description: "Me gustaría conocer a alguien especial / plan ligue",
+    wristband: "Pulsera Verde",
+    colorClass: "bg-emerald-950/80 border-emerald-400 text-emerald-200",
+    badgeBg: "bg-emerald-400 text-black font-bold",
   },
 } as const;
 
@@ -101,7 +85,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
         );
         if (res.ok) {
           const data = await res.json();
-          if (data.socialPlan) {
+          if (data.socialPlan && data.socialPlan in SOCIAL_PLAN_DETAILS) {
             setSelectedPlan(data.socialPlan as SocialPlanKey);
           }
           if (data.hasBirthDate !== undefined) {
@@ -186,19 +170,19 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
 
           <Reveal delay={0.2}>
             <p className="text-sm text-ash max-w-xs font-light">
-              Acceso prioritario y dinámica social exclusiva para miembros del Club.
+              Acceso prioritario y dinámica del semáforo exclusiva para miembros del Club.
             </p>
           </Reveal>
         </div>
 
-        {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+        {/* Events Layout */}
+        <div className={items.length === 1 ? "max-w-3xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12"}>
           {items.map((event) => {
             const date = formatEventDate(event.date);
             return (
               <div
                 key={event.id}
-                className="group flex flex-col justify-between bg-ink border border-bone/10 overflow-hidden"
+                className="group flex flex-col justify-between bg-ink border border-bone/15 rounded-xl overflow-hidden shadow-2xl"
               >
                 {/* Visual Media Container */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-graphite">
@@ -206,7 +190,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
                     src={event.image.src}
                     alt={event.image.alt}
                     fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 768px"
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/20 to-transparent" />
@@ -219,7 +203,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
                   )}
 
                   {/* Date Badge */}
-                  <div className="absolute top-4 right-4 bg-bone text-ink p-3 text-center min-w-[3.5rem] flex flex-col justify-center">
+                  <div className="absolute top-4 right-4 bg-bone text-ink p-3 text-center min-w-[3.5rem] flex flex-col justify-center shadow-lg">
                     <span className="display text-2xl leading-none font-bold">
                       {date.day}
                     </span>
@@ -244,9 +228,22 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
                       {event.name}
                     </h3>
 
-                    <p className="text-sm text-fog font-light leading-relaxed mb-4">
+                    <p className="text-sm text-fog font-light leading-relaxed mb-5">
                       {event.description}
                     </p>
+
+                    {/* Confirmed Event Perks */}
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      <span className="px-2.5 py-1 bg-amber-400/10 border border-amber-400/30 text-amber-300 text-[0.65rem] font-mono uppercase tracking-wider rounded">
+                        🍾 BOTELLAS $599
+                      </span>
+                      <span className="px-2.5 py-1 bg-bone/10 border border-bone/20 text-bone text-[0.65rem] font-mono uppercase tracking-wider rounded">
+                        🍹 MOJITOS 2X1
+                      </span>
+                      <span className="px-2.5 py-1 bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-[0.65rem] font-mono uppercase tracking-wider rounded">
+                        🚦 DINÁMICA DEL SEMÁFORO
+                      </span>
+                    </div>
 
                     <p className="text-xs text-ash tracking-wider uppercase font-mono mb-6">
                       📍 {event.venue}
@@ -262,12 +259,12 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
                     >
                       CONFIRMAR PLAN
                     </button>
-                    <Link
-                      href={`/eventos#${event.slug}`}
+                    <a
+                      href="#unete"
                       className="btn btn-ghost flex-1 !min-h-[3rem] !text-xs tracking-[0.2em]"
                     >
-                      VER EVENTO
-                    </Link>
+                      UNIRME AL CLUB
+                    </a>
                   </div>
                 </div>
               </div>
@@ -291,13 +288,24 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
             {/* Modal Header */}
             <div>
               <span className="eyebrow text-ash block mb-1">
-                DINÁMICA SOCIAL · {selectedEvent.name}
+                DINÁMICA SOCIAL DEL SEMÁFORO · {selectedEvent.name}
               </span>
               <h3 className="display text-2xl sm:text-3xl uppercase text-bone tracking-tight">
                 ¿EN QUÉ PLAN VIENES HOY?
               </h3>
               <p className="text-xs text-fog font-light mt-1.5 leading-relaxed">
-                Elige la vibra con la que asistes a esta fecha. Te identificaremos al llegar para conectarte con personas en tu misma sintonía.
+                Elige la vibra con la que asistes a esta fecha. Te entregaremos tu pulsera distintiva en puerta para romper el hielo y conectar con la comunidad.
+              </p>
+            </div>
+
+            {/* Introductory Privacy Notice */}
+            <div className="p-4 bg-ink/90 border border-bone/15 rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-mono font-semibold text-bone">
+                <span>🔒</span>
+                <span>PRIVACIDAD & SITUACIÓN SENTIMENTAL</span>
+              </div>
+              <p className="text-xs text-ash font-light leading-relaxed">
+                Tu situación sentimental en tu perfil personal es <strong>estrictamente confidencial</strong>. Esta elección es exclusiva para identificarte con tu pulsera en la puerta de este evento y facilitar la dinámica social.
               </p>
             </div>
 
@@ -359,7 +367,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
             ) : (
               /* Selection Form */
               <form onSubmit={handleConfirmRsvp} className="space-y-5">
-                {/* 5 Social Plans Cards */}
+                {/* 3 Official Traffic Light Plan Cards */}
                 <div className="space-y-2.5">
                   {(Object.keys(SOCIAL_PLAN_DETAILS) as SocialPlanKey[]).map((key) => {
                     const plan = SOCIAL_PLAN_DETAILS[key];

@@ -23,6 +23,8 @@ export type PublicMember = {
   tier: MemberTier;
   /** Opaque token used in the member QR → /m/{qrToken}. Not the UUID. */
   qrToken: string;
+  /** Available redeemable loyalty points */
+  pointsBalance?: number;
 };
 
 export type RegisterResult = {
@@ -30,3 +32,54 @@ export type RegisterResult = {
   /** false when the email/phone already belonged to a member */
   created: boolean;
 };
+
+export type LoyaltyRewardCategory = "MERCHANDISE" | "BOTTLE" | "EXPERIENCE" | "COURTESY";
+
+export type LoyaltyReward = {
+  id: string;
+  title: string;
+  description: string;
+  pointsCost: number;
+  category: LoyaltyRewardCategory;
+  imageUrl?: string | null;
+  stock?: number;
+  active: boolean;
+  terms?: string | null;
+  createdAt?: string;
+};
+
+export type LoyaltyTransactionType =
+  | "WELCOME_BONUS"
+  | "EVENT_ATTENDANCE"
+  | "REFERRAL"
+  | "BENEFIT_REDEEM"
+  | "MANUAL_ADJUSTMENT"
+  | "PURCHASE_REWARD";
+
+export type LoyaltyTransaction = {
+  id: string;
+  memberId: string;
+  amount: number;
+  balanceAfter: number;
+  type: LoyaltyTransactionType;
+  description: string;
+  createdAt: string;
+  createdBy?: string;
+};
+
+export type LoyaltyRedemptionStatus = "PENDING" | "FULFILLED" | "CANCELLED";
+
+export type LoyaltyRedemption = {
+  id: string;
+  memberId: string;
+  rewardId: string;
+  rewardTitle: string;
+  pointsSpent: number;
+  status: LoyaltyRedemptionStatus;
+  redemptionCode: string;
+  notes?: string | null;
+  fulfilledAt?: string | null;
+  fulfilledBy?: string | null;
+  createdAt: string;
+};
+

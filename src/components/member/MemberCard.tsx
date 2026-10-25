@@ -8,6 +8,8 @@ type Props = {
   firstName: string;
   memberNumber: number;
   since: number;
+  pointsBalance?: number;
+  tier?: string;
   qrValue?: string;
   qrToken?: string;
   interactive?: boolean;
@@ -22,6 +24,8 @@ export function MemberCard({
   firstName,
   memberNumber,
   since,
+  pointsBalance,
+  tier,
   qrValue,
   qrToken,
   interactive = true,
@@ -98,7 +102,7 @@ export function MemberCard({
           }}
         />
 
-        {/* Top Bar: Brand + Tag */}
+        {/* Top Bar: Brand + Tag + Points Pill */}
         <div className="flex items-center justify-between relative z-10">
           <div className="flex flex-col">
             <span className="display text-xl sm:text-2xl text-bone tracking-[0.2em]">
@@ -109,12 +113,19 @@ export function MemberCard({
             </span>
           </div>
 
-          <div className="px-3 py-1 rounded-full border border-bone/30 bg-ink/60 text-[0.6rem] tracking-[0.25em] uppercase text-bone font-semibold">
-            MEMBER
+          <div className="flex items-center gap-2">
+            {typeof pointsBalance === "number" && (
+              <div className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[0.58rem] font-mono tracking-wider font-semibold shadow-inner">
+                ★ {pointsBalance} PTS
+              </div>
+            )}
+            <div className="px-3 py-1 rounded-full border border-bone/30 bg-ink/60 text-[0.6rem] tracking-[0.25em] uppercase text-bone font-semibold">
+              {tier || "MEMBER"}
+            </div>
           </div>
         </div>
 
-        {/* Middle Area: Minimalist aesthetic line or seal */}
+        {/* Middle Area: Titular and points subline */}
         <div className="relative z-10 flex items-center justify-between">
           <div>
             <span className="text-[0.6rem] tracking-[0.3em] uppercase text-ash/80 block mb-1">
@@ -123,6 +134,14 @@ export function MemberCard({
             <span className="display text-2xl sm:text-3xl text-bone tracking-wide uppercase">
               {firstName}
             </span>
+            {typeof pointsBalance === "number" && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[0.62rem] font-mono text-amber-300 tracking-wider uppercase font-semibold">
+                  {pointsBalance} PTS DISPONIBLES
+                </span>
+              </div>
+            )}
           </div>
 
           {/* QR Container */}
