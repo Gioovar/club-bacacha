@@ -9,7 +9,7 @@ import { RevealLines } from "@/components/motion/RevealLines";
 import { Reveal } from "@/components/motion/Reveal";
 import { loadMember } from "@/lib/members/client-store";
 import type { PublicMember } from "@/lib/members/types";
-import { CheckCircle2, Sparkles, X, Heart, Users, Flame, Lock } from "lucide-react";
+import { CheckCircle2, Sparkles, X, Heart, Users, Flame, Lock, Calendar } from "lucide-react";
 
 type Props = {
   eyebrow: string;
@@ -175,9 +175,28 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
           </Reveal>
         </div>
 
-        {/* Events Layout */}
-        <div className={items.length === 1 ? "max-w-3xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12"}>
-          {items.map((event) => {
+        {/* Events Layout or Empty State */}
+        {items.length === 0 ? (
+          <div className="py-20 text-center max-w-xl mx-auto px-6 border border-bone/10 bg-ink/70 rounded-2xl backdrop-blur-md shadow-2xl">
+            <div className="w-14 h-14 rounded-full bg-bone/5 border border-bone/15 mx-auto flex items-center justify-center text-amber-400 mb-5">
+              <Calendar className="w-7 h-7" />
+            </div>
+            <h3 className="display text-2xl sm:text-3xl text-bone uppercase mb-3 tracking-tight">
+              Estamos preparando nuestra próxima reunión
+            </h3>
+            <p className="text-sm text-ash font-light leading-relaxed mb-8 max-w-md mx-auto">
+              Únete al club y entérate primero de locaciones secretas, beneficios de bienvenida y accesos prioritarios.
+            </p>
+            <a
+              href="#unete"
+              className="btn btn-primary inline-flex items-center gap-2 !text-xs tracking-[0.2em] shadow-lg shadow-gold/20"
+            >
+              ÚNETE GRATIS AL CLUB →
+            </a>
+          </div>
+        ) : (
+          <div className={items.length === 1 ? "max-w-3xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12"}>
+            {items.map((event) => {
             const date = formatEventDate(event.date);
             return (
               <div
@@ -271,6 +290,7 @@ export function EventsSection({ eyebrow, titleLines, items }: Props) {
             );
           })}
         </div>
+      )}
       </div>
 
       {/* SOCIAL DYNAMIC RSVP MODAL */}
