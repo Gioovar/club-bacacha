@@ -219,34 +219,77 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Bar Chart Container */}
-          <div className="h-48 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-neutral-850">
-            {(data?.dailyRegistrations || []).map((d) => {
-              const heightPercent = Math.max(8, Math.round((d.count / maxDaily) * 100));
-              const isToday = d.date === new Date().toISOString().split("T")[0];
+          <div className="relative h-56 w-full pt-8 pb-4 px-2 border-b border-neutral-850">
+            {/* Background Grid Lines (Y-Axis reference) */}
+            <div className="absolute inset-x-2 top-8 bottom-8 flex flex-col justify-between pointer-events-none opacity-20">
+              <div className="border-b border-dashed border-neutral-600 w-full flex justify-between">
+                <span className="text-[0.55rem] font-mono text-neutral-400 -mt-2 bg-neutral-950 px-1">{maxDaily} max</span>
+              </div>
+              <div className="border-b border-dashed border-neutral-700 w-full flex justify-between">
+                <span className="text-[0.55rem] font-mono text-neutral-500 -mt-2 bg-neutral-950 px-1">{Math.max(1, Math.round(maxDaily / 2))}</span>
+              </div>
+              <div className="border-b border-neutral-800 w-full"></div>
+            </div>
 
-              return (
-                <div key={d.date} className="flex-1 flex flex-col items-center gap-2 group relative">
-                  {/* Tooltip */}
-                  <div className="absolute -top-8 hidden group-hover:flex px-2 py-1 bg-neutral-800 text-white text-[0.62rem] font-mono rounded shadow-lg whitespace-nowrap z-10">
-                    {d.date}: {d.count} miembros
-                  </div>
+            {/* Bars Flex Track */}
+            <div className="relative h-full w-full flex items-end gap-1.5 sm:gap-2">
+              {(data?.dailyRegistrations || []).map((d) => {
+                const heightPercent = d.count > 0 ? Math.max(16, Math.round((d.count / maxDaily) * 100)) : 0;
+                const isToday = d.date === new Date().toISOString().split("T")[0];
 
+                return (
                   <div
-                    style={{ height: `${heightPercent}%` }}
-                    className={`w-full max-w-[28px] rounded-t-md transition-all duration-300 ${
-                      isToday
-                        ? "bg-amber-400 group-hover:bg-amber-300"
-                        : d.count > 0
-                        ? "bg-neutral-600 group-hover:bg-neutral-400"
-                        : "bg-neutral-850 group-hover:bg-neutral-800"
-                    }`}
-                  />
-                  <span className="text-[0.6rem] font-mono text-neutral-400 truncate max-w-full">
-                    {d.date.slice(8)}
-                  </span>
-                </div>
-              );
-            })}
+                    key={d.date}
+                    className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer"
+                  >
+                    {/* Tooltip on hover */}
+                    <div className="absolute -top-7 hidden group-hover:flex flex-col items-center pointer-events-none z-20">
+                      <div className="px-2 py-0.5 bg-black/95 border border-amber-400/50 text-amber-300 text-[0.62rem] font-mono rounded shadow-xl whitespace-nowrap">
+                        <span className="font-bold">{d.count}</span> miembros · {d.date}
+                      </div>
+                    </div>
+
+                    {/* Numeric Count badge above active bars */}
+                    {d.count > 0 ? (
+                      <span className="text-[0.62rem] font-mono font-bold text-amber-400 mb-1 tracking-tight transition-transform duration-200 group-hover:scale-110">
+                        {d.count}
+                      </span>
+                    ) : (
+                      <span className="text-[0.62rem] font-mono text-transparent mb-1 select-none">
+                        0
+                      </span>
+                    )}
+
+                    {/* Bar track and fill element */}
+                    <div className="w-full flex-1 flex items-end justify-center">
+                      <div
+                        style={{ height: d.count > 0 ? `${heightPercent}%` : "3px" }}
+                        className={`w-full max-w-[28px] rounded-t-sm transition-all duration-300 ${
+                          d.count > 0
+                            ? "bg-gradient-to-t from-amber-500 to-amber-300 shadow-md shadow-amber-500/20 group-hover:from-amber-400 group-hover:to-amber-200"
+                            : isToday
+                            ? "bg-amber-400/30 group-hover:bg-amber-400/60"
+                            : "bg-neutral-850 group-hover:bg-neutral-800"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Day Number Label */}
+                    <span
+                      className={`text-[0.62rem] font-mono mt-2 truncate ${
+                        isToday
+                          ? "text-amber-400 font-bold"
+                          : d.count > 0
+                          ? "text-neutral-200 font-semibold"
+                          : "text-neutral-500"
+                      }`}
+                    >
+                      {d.date.slice(8)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center justify-between text-[0.68rem] font-mono text-neutral-400">
