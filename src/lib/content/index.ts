@@ -101,7 +101,7 @@ export async function getSiteContent(): Promise<SiteContent> {
     },
     benefits: {
       ...demoContent.benefits,
-      items: realBenefits.length > 0 ? realBenefits : demoContent.benefits.items,
+      items: realBenefits,
     },
   };
 }

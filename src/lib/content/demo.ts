@@ -56,16 +56,7 @@ export const demoContent: SiteContent = {
   benefits: {
     eyebrow: "Beneficios del Club",
     titleLines: ["Lo que pasa", "adentro"],
-    items: [
-      { id: "b1", slug: "promociones-exclusivas", title: "Promociones Exclusivas", phrase: "Precios especiales y combinaciones que no están en el menú público.", image: IMAGES.bartender, active: true },
-      { id: "b2", slug: "eventos-del-club", title: "Eventos del Club", phrase: "Primero te enteras tú. Acceso preferencial a fechas oficiales y noches secretas.", image: IMAGES.dj, active: true },
-      { id: "b3", slug: "puntos-y-recompensas", title: "Puntos y Recompensas", phrase: "Acumula puntos por tus visitas y canjéalos por premios oficiales.", image: IMAGES.toast, active: true },
-      { id: "b4", slug: "productos-exclusivos", title: "Productos Exclusivos", phrase: "Playeras, gorras y botellas edición conmemorativa Club Bacachá.", image: IMAGES.door, active: true },
-      { id: "b5", slug: "cumpleanos", title: "Cumpleaños", phrase: "Tu noche más importante con cortesías especiales y bienvenida VIP de la casa.", image: IMAGES.birthday, active: true },
-      { id: "b6", slug: "nuevas-amistades", title: "Nuevas Amistades", phrase: "Conecta con personas en tu misma vibra con la dinámica social del semáforo.", image: IMAGES.portrait, active: true },
-      { id: "b7", slug: "membresia-digital", title: "Membresía Digital", phrase: "Tu credencial inteligente con QR siempre disponible en tu teléfono.", image: IMAGES.invitation, active: true },
-      { id: "b8", slug: "sorpresas-para-miembros", title: "Sorpresas para Miembros", phrase: "Beneficios espontáneos y accesos que llegan directamente a ti sin aviso.", image: IMAGES.pool, active: true },
-    ],
+    items: [],
   },
   howItWorks: {
     eyebrow: "Cómo entrar al club",
