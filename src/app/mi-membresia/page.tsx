@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/navigation/Header";
 import { Footer } from "@/components/navigation/Footer";
@@ -325,8 +326,15 @@ export default function MiMembresiaPage() {
                   </div>
 
                   <div className="flex items-center gap-4 bg-ink/80 border border-amber-400/30 rounded-xl px-5 py-3 shadow-inner">
-                    <div className="w-10 h-10 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-xl font-bold">
-                      ★
+                    <div className="relative w-11 h-11 rounded-full overflow-hidden border border-amber-400/50 shadow-md flex-shrink-0 bg-ink">
+                      <Image
+                        src="/logo.png"
+                        alt="Club Bacachá"
+                        fill
+                        sizes="44px"
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                     <div>
                       <span className="text-[0.6rem] font-mono uppercase text-ash tracking-widest block">

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminSession, logAdminAudit } from "@/lib/admin/session";
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag, revalidatePath } from "next/cache";
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession(req);
@@ -239,6 +240,12 @@ export async function POST(req: NextRequest) {
       }
     );
 
+    try {
+      revalidateTag("benefits", { expire: 0 });
+      revalidateTag("site-content", { expire: 0 });
+      revalidatePath("/");
+    } catch {}
+
     return NextResponse.json({ success: true, benefit: cloned }, { status: 201 });
   }
 
@@ -361,6 +368,12 @@ export async function POST(req: NextRequest) {
     }
   );
 
+  try {
+    revalidateTag("benefits", { expire: 0 });
+    revalidateTag("site-content", { expire: 0 });
+    revalidatePath("/");
+  } catch {}
+
   return NextResponse.json({ success: true, benefit: newBenefit }, { status: 201 });
 }
 
@@ -475,6 +488,12 @@ export async function PATCH(req: NextRequest) {
       targetId: id,
     }
   );
+
+  try {
+    revalidateTag("benefits", { expire: 0 });
+    revalidateTag("site-content", { expire: 0 });
+    revalidatePath("/");
+  } catch {}
 
   return NextResponse.json({ success: true, benefit: updated });
 }

@@ -107,10 +107,6 @@ export async function getSiteContent(): Promise<SiteContent> {
 }
 
 export async function getEventBySlug(slug: string): Promise<ClubEvent | undefined> {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("events");
-
   const events = await getUpcomingEvents();
   return events.find((e) => e.slug === slug);
 }

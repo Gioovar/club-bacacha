@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
@@ -85,11 +86,23 @@ export function AdminSidebar({
       >
         {/* Header / Logo */}
         <div className="h-20 px-6 flex items-center justify-between border-b border-neutral-900/80">
-          <div className="flex flex-col">
-            <BrandLogo size="md" className="tracking-[0.25em] text-white text-xl" />
-            <span className="text-[0.6rem] font-mono tracking-[0.28em] text-neutral-400 uppercase mt-0.5">
-              CRM & PANEL DE CONTROL
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="relative w-9 h-9 rounded-full overflow-hidden border border-amber-400/40 shadow-sm flex-shrink-0 bg-neutral-900">
+              <Image
+                src="/logo.png"
+                alt="Club Bacachá"
+                fill
+                sizes="36px"
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <div className="flex flex-col">
+              <BrandLogo size="md" className="tracking-[0.25em] text-white text-xl leading-none" />
+              <span className="text-[0.58rem] font-mono tracking-[0.28em] text-neutral-400 uppercase mt-1">
+                CRM & CONTROL
+              </span>
+            </div>
           </div>
 
           <button

@@ -140,6 +140,13 @@ export async function DELETE(
     }
   );
 
+  try {
+    const { revalidateTag, revalidatePath } = await import("next/cache");
+    revalidateTag("benefits", { expire: 0 });
+    revalidateTag("site-content", { expire: 0 });
+    revalidatePath("/");
+  } catch {}
+
   return NextResponse.json({
     success: true,
     message: `Beneficio "${benefit.title}" eliminado correctamente.`,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { formatMemberNumber, memberLabel } from "@/lib/site";
 
@@ -104,19 +105,41 @@ export function MemberCard({
 
         {/* Top Bar: Brand + Tag + Points Pill */}
         <div className="flex items-center justify-between relative z-10">
-          <div className="flex flex-col">
-            <span className="display text-xl sm:text-2xl text-bone tracking-[0.2em]">
-              BACACHÁ
-            </span>
-            <span className="text-[0.55rem] tracking-[0.35em] uppercase text-ash font-medium">
-              CLUB PRIVADO
-            </span>
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-amber-400/40 shadow-sm flex-shrink-0 bg-ink">
+              <Image
+                src="/logo.png"
+                alt="Club Bacachá"
+                fill
+                sizes="32px"
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="display text-xl sm:text-2xl text-bone tracking-[0.2em] leading-none">
+                BACACHÁ
+              </span>
+              <span className="text-[0.55rem] tracking-[0.35em] uppercase text-ash font-medium mt-1">
+                CLUB PRIVADO
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             {typeof pointsBalance === "number" && (
-              <div className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[0.58rem] font-mono tracking-wider font-semibold shadow-inner">
-                ★ {pointsBalance} PTS
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[0.58rem] font-mono tracking-wider font-semibold shadow-inner">
+                <span className="relative w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0 inline-block">
+                  <Image
+                    src="/logo.png"
+                    alt="Bacachá"
+                    fill
+                    sizes="14px"
+                    className="object-cover"
+                    unoptimized
+                  />
+                </span>
+                <span>{pointsBalance} PTS</span>
               </div>
             )}
             <div className="px-3 py-1 rounded-full border border-bone/30 bg-ink/60 text-[0.6rem] tracking-[0.25em] uppercase text-bone font-semibold">
