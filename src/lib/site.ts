@@ -1,7 +1,7 @@
 export const SITE = {
   name: "Club Bacachá",
   shortName: "Bacachá",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://bacacha.com",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.bacacha.com",
   title: "Club Bacachá | ¿Tú ya eres del Club?",
   description:
     "Únete a Club Bacachá y descubre promociones, eventos, experiencias y beneficios exclusivos.",

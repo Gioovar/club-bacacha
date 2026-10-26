@@ -25,22 +25,23 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE.url),
+  metadataBase: new URL("https://www.bacacha.com"),
   title: { default: SITE.title, template: "%s | Club Bacachá" },
   description: "Club Privado en Acapulco — Eventos exclusivos, beneficios de barra, comunidad y recompensas para miembros.",
   applicationName: SITE.name,
-  alternates: { canonical: "/" },
+  alternates: { canonical: "https://www.bacacha.com" },
   manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
-    locale: SITE.locale,
-    url: "https://bacacha.com",
+    locale: "es_MX",
+    url: "https://www.bacacha.com",
     siteName: SITE.name,
     title: "Club Bacachá | ¿Tú ya eres del Club?",
     description: "Club Privado en Acapulco — Eventos exclusivos, beneficios de barra, comunidad y recompensas para miembros.",
     images: [
       {
-        url: "/og-image.png",
+        url: "https://www.bacacha.com/og-image.png",
+        secureUrl: "https://www.bacacha.com/og-image.png",
         width: 1200,
         height: 630,
         alt: "Club Bacachá — Cantina Dolores Acapulco",
@@ -52,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Club Bacachá | ¿Tú ya eres del Club?",
     description: "Club Privado en Acapulco — Eventos exclusivos, beneficios de barra, comunidad y recompensas para miembros.",
-    images: ["/og-image.png"],
+    images: ["https://www.bacacha.com/og-image.png"],
     creator: "@clubbacacha",
   },
   formatDetection: { telephone: false },
