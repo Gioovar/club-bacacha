@@ -37,6 +37,9 @@ interface Member extends WelcomeModalMember {
   engagement_category: string;
   last_activity_at: string;
   events_attended_count: number;
+  total_visits?: number;
+  last_visit_at?: string | null;
+  last_scanned_by?: string | null;
   benefits_used_count: number;
   referrals_confirmed_count: number;
   utm_campaign?: string;
@@ -508,8 +511,16 @@ export default function MembersListPage() {
                       </td>
 
                       {/* Participation Details */}
-                      <td className="p-4 font-mono text-[0.68rem] text-neutral-400">
-                        <div>{m.events_attended_count} eventos asistidos</div>
+                      <td className="p-4 font-mono text-[0.68rem] text-neutral-400 space-y-0.5">
+                        <div className="text-neutral-200 font-semibold">
+                          Visitas acumuladas: {m.total_visits ?? m.events_attended_count}
+                        </div>
+                        {m.last_visit_at && (
+                          <div className="text-[0.62rem] text-amber-400/90">
+                            Últ. visita: {new Date(m.last_visit_at).toLocaleDateString("es-MX")}
+                            {m.last_scanned_by ? ` · ${m.last_scanned_by}` : ""}
+                          </div>
+                        )}
                         <div>{m.benefits_used_count} beneficios canjeados</div>
                         <div>{m.referrals_confirmed_count} referidos</div>
                       </td>

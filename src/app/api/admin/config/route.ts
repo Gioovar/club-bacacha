@@ -45,7 +45,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { scoringRules, loyaltyThresholds, welcomeMessageTemplate } = body;
+    const {
+      scoringRules,
+      loyaltyThresholds,
+      welcomeMessageTemplate,
+      visitLoyaltyRules,
+    } = body;
 
     if (scoringRules) {
       await supabase.from("admin_config").upsert({
@@ -61,6 +66,35 @@ export async function POST(req: NextRequest) {
         key: "loyalty_thresholds",
         value: loyaltyThresholds,
         description: "Umbrales automáticos de categorización de miembros",
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (visitLoyaltyRules && typeof visitLoyaltyRules === "object") {
+      await supabase.from("admin_config").upsert({
+        key: "visit_loyalty_rules",
+        value: {
+          shift_cutoff_hour: Math.min(
+            23,
+            Math.max(0, Number(visitLoyaltyRules.shift_cutoff_hour ?? 6))
+          ),
+          timezone: visitLoyaltyRules.timezone || "America/Mexico_City",
+          points_per_visit_enabled: Boolean(
+            visitLoyaltyRules.points_per_visit_enabled
+          ),
+          points_per_visit: Math.max(
+            0,
+            Number(visitLoyaltyRules.points_per_visit ?? 20)
+          ),
+          milestone_visits_threshold: Math.max(
+            1,
+            Number(visitLoyaltyRules.milestone_visits_threshold ?? 5)
+          ),
+          updated_by: session.user.name || "Administrador Compartido",
+          updated_at: new Date().toISOString(),
+        },
+        description:
+          "Reglas de corte de jornada y puntos por visita en el sistema de Scanner",
         updated_at: new Date().toISOString(),
       });
     }
@@ -83,6 +117,7 @@ export async function POST(req: NextRequest) {
       {
         scoringRules: Boolean(scoringRules),
         loyaltyThresholds: Boolean(loyaltyThresholds),
+        visitLoyaltyRules: Boolean(visitLoyaltyRules),
         welcomeMessageTemplateUpdated: typeof welcomeMessageTemplate === "string",
       },
       {

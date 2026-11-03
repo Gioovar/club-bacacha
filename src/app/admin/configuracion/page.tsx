@@ -55,6 +55,17 @@ export default function AdminSettingsPage() {
     message: string;
   } | null>(null);
 
+  // Visit & Shift rules state (Sections 6 & 9)
+  const [visitLoyaltyRules, setVisitLoyaltyRules] = useState({
+    shift_cutoff_hour: 6,
+    timezone: "America/Mexico_City",
+    points_per_visit_enabled: false,
+    points_per_visit: 20,
+    milestone_visits_threshold: 5,
+  });
+  const [savingVisitRules, setSavingVisitRules] = useState(false);
+  const [visitRulesStatus, setVisitRulesStatus] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/admin/config")
       .then((res) => (res.ok ? res.json() : null))
@@ -64,6 +75,12 @@ export default function AdminSettingsPage() {
         }
         if (data?.config?.loyalty_thresholds) {
           setThresholds(data.config.loyalty_thresholds);
+        }
+        if (data?.config?.visit_loyalty_rules) {
+          setVisitLoyaltyRules((prev) => ({
+            ...prev,
+            ...data.config.visit_loyalty_rules,
+          }));
         }
         const tplConfig = data?.config?.welcome_message_template;
         if (typeof tplConfig === "string" && tplConfig.trim()) {
@@ -177,6 +194,30 @@ export default function AdminSettingsPage() {
       });
     } finally {
       setSavingWelcome(false);
+    }
+  };
+
+  const handleSaveVisitLoyaltyRules = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingVisitRules(true);
+    setVisitRulesStatus(null);
+
+    try {
+      const res = await fetch("/api/admin/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visitLoyaltyRules,
+        }),
+      });
+      if (res.ok) {
+        setVisitRulesStatus(
+          "Definición de jornada y reglas de fidelización por visita guardadas en Supabase."
+        );
+        setTimeout(() => setVisitRulesStatus(null), 4000);
+      }
+    } finally {
+      setSavingVisitRules(false);
     }
   };
 
@@ -455,6 +496,122 @@ export default function AdminSettingsPage() {
               &#123;nombre&#125; se sustituye automáticamente por el nombre real del miembro y &#123;numero&#125; por su número oficial con formato #000049.
             </p>
           </div>
+        </form>
+      </div>
+
+      {/* Jornada Operativa y Fidelización por Visitas (Secciones 6 y 9) */}
+      <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-5 shadow-xl">
+        <div className="flex items-center gap-2.5">
+          <Award className="w-4 h-4 text-amber-400" />
+          <div>
+            <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-wide">
+              DEFINICIÓN DE JORNADA OPERATIVA Y PUNTOS POR VISITA (SCANNER QR)
+            </h2>
+            <p className="text-[0.68rem] font-mono text-neutral-400 mt-0.5">
+              Configura la hora de corte de jornada (para que una noche que comienza por la tarde y termina después de medianoche cuente como una sola jornada) y las reglas de puntos por visita.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveVisitLoyaltyRules} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
+                Hora de Corte de Jornada (0 - 23 hrs)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={23}
+                value={visitLoyaltyRules.shift_cutoff_hour}
+                onChange={(e) =>
+                  setVisitLoyaltyRules({
+                    ...visitLoyaltyRules,
+                    shift_cutoff_hour: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+              />
+              <span className="text-[0.62rem] font-mono text-neutral-500 mt-1 block">
+                Ej. 6 = La jornada termina a las 06:00 AM del día siguiente.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
+                Otorgar Puntos por Visita
+              </label>
+              <select
+                value={visitLoyaltyRules.points_per_visit_enabled ? "true" : "false"}
+                onChange={(e) =>
+                  setVisitLoyaltyRules({
+                    ...visitLoyaltyRules,
+                    points_per_visit_enabled: e.target.value === "true",
+                  })
+                }
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+              >
+                <option value="false">Desactivado (Solo contar visitas)</option>
+                <option value="true">Activado (Sumar puntos en libro mayor)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
+                Puntos por cada Visita Válida
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={visitLoyaltyRules.points_per_visit}
+                onChange={(e) =>
+                  setVisitLoyaltyRules({
+                    ...visitLoyaltyRules,
+                    points_per_visit: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase mb-1">
+                Meta de Visitas (Nivel Destacado)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={visitLoyaltyRules.milestone_visits_threshold}
+                onChange={(e) =>
+                  setVisitLoyaltyRules({
+                    ...visitLoyaltyRules,
+                    milestone_visits_threshold: Number(e.target.value),
+                  })
+                }
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+              />
+            </div>
+          </div>
+
+          {visitRulesStatus && (
+            <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-mono text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{visitRulesStatus}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={savingVisitRules}
+            className="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs font-mono uppercase tracking-wider flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            <span>
+              {savingVisitRules
+                ? "Guardando..."
+                : "Guardar Configuración de Jornada y Visitas"}
+            </span>
+          </button>
         </form>
       </div>
     </div>

@@ -163,11 +163,33 @@ export default function MemberDetailPage() {
 
   const { member, score, tags, notes, activity, events, benefits, referrals, communications, consents } = data;
 
+  const visitActivities = (activity || []).filter(
+    (a: any) =>
+      a.activity_type === "VISIT_REGISTERED" ||
+      a.activity_type === "EVENT_ATTENDANCE"
+  );
+  const totalAccumulatedVisits = Math.max(
+    Number(score?.events_attended_count || 0),
+    visitActivities.length + (events || []).length
+  );
+  const latestVisitAct = visitActivities[0];
+  const latestVisitMeta = (latestVisitAct?.metadata || {}) as Record<string, any>;
+  const lastVisitDateStr = latestVisitAct
+    ? new Date(latestVisitMeta.visited_at || latestVisitAct.created_at).toLocaleDateString("es-MX")
+    : events?.[0]?.checkin_at
+    ? new Date(events[0].checkin_at).toLocaleDateString("es-MX")
+    : null;
+  const lastScannedByStr = latestVisitAct
+    ? latestVisitMeta.employee_name
+      ? `${latestVisitMeta.employee_name}${latestVisitMeta.employee_role ? ` (${latestVisitMeta.employee_role})` : ""}`
+      : latestVisitMeta.verified_by || "Personal Club Bacachá"
+    : events?.[0]?.verified_by_name || null;
+
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "personales", label: "DATOS PERSONALES" },
     { key: "membresia", label: "MEMBRESÍA" },
     { key: "actividad", label: "ACTIVIDAD", count: activity.length },
-    { key: "eventos", label: "EVENTOS", count: events.length },
+    { key: "eventos", label: "VISITAS Y EVENTOS", count: totalAccumulatedVisits },
     { key: "beneficios", label: "BENEFICIOS", count: benefits.length },
     { key: "referidos", label: "REFERIDOS", count: referrals.length },
     { key: "comunicaciones", label: "COMUNICACIONES", count: communications.length },
@@ -241,6 +263,21 @@ export default function MemberDetailPage() {
               <span>·</span>
               <span className="text-emerald-400">● {member.status}</span>
             </p>
+
+            {/* Resumen de Visitas y Escaneo (Sección 8) */}
+            <div className="pt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono">
+              <span className="text-amber-300 font-semibold">
+                Visitas acumuladas: {totalAccumulatedVisits}
+              </span>
+              <span className="text-neutral-400">
+                Última visita: {lastVisitDateStr || "Sin visitas registradas"}
+              </span>
+              {lastScannedByStr && (
+                <span className="text-neutral-300">
+                  Escaneado por: <strong className="text-white">{lastScannedByStr}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -464,18 +501,52 @@ export default function MemberDetailPage() {
           </div>
         )}
 
-        {/* TAB 4: EVENTOS */}
+        {/* TAB 4: VISITAS Y EVENTOS */}
         {activeTab === "eventos" && (
           <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-4">
             <h2 className="text-xs font-mono font-semibold text-neutral-400 uppercase tracking-widest">
-              ASISTENCIAS Y CHECK-INS EN EVENTOS
+              HISTORIAL DE ASISTENCIAS Y ESCANEOS QR ({totalAccumulatedVisits})
             </h2>
-            {events.length === 0 ? (
+            {visitActivities.length === 0 && events.length === 0 ? (
               <p className="text-xs font-mono text-neutral-500 py-8 text-center">
-                El socio no ha registrado asistencias verificadas a eventos.
+                El socio aún no registra visitas en el scanner ni asistencias a eventos.
               </p>
             ) : (
               <div className="space-y-3">
+                {visitActivities.map((va: any) => {
+                  const meta = (va.metadata || {}) as Record<string, any>;
+                  const empLabel = meta.employee_name
+                    ? `${meta.employee_name}${meta.employee_role ? ` (${meta.employee_role})` : ""}`
+                    : meta.verified_by || "Personal Club Bacachá";
+                  return (
+                    <div
+                      key={va.id}
+                      className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-850 text-xs font-mono flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="text-white font-semibold text-sm block">
+                          Visita #{meta.visit_number || 1} — Club Bacachá
+                        </span>
+                        <span className="text-amber-400 text-[0.7rem] block mt-0.5">
+                          Escaneado por: {empLabel}
+                        </span>
+                        {meta.shift_date && (
+                          <span className="text-neutral-500 text-[0.65rem] block mt-0.5">
+                            Jornada operativa: {meta.shift_date}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 text-[0.65rem]">
+                          VISITA REGISTRADA
+                        </span>
+                        <span className="text-neutral-500 text-[0.65rem] block mt-1">
+                          {new Date(meta.visited_at || va.created_at).toLocaleString("es-MX")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
                 {events.map((e: any) => (
                   <div key={e.id} className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-850 text-xs font-mono flex items-center justify-between">
                     <div>

@@ -59,10 +59,45 @@ export async function GET(req: NextRequest) {
     }
 
     const memberIds = (members || []).map((m: any) => m.id);
-    const [welcomeMap, welcomeTemplate] = await Promise.all([
+    const [welcomeMap, welcomeTemplate, visitActivitiesRes] = await Promise.all([
       getWelcomeSummaryByMemberIds(supabase, memberIds),
       getGeneralWelcomeTemplate(supabase),
+      memberIds.length > 0
+        ? supabase
+            .from("member_activity")
+            .select("member_id, activity_type, metadata, created_at")
+            .in("member_id", memberIds)
+            .in("activity_type", ["VISIT_REGISTERED", "EVENT_ATTENDANCE"])
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as any[] }),
     ]);
+
+    const visitSummaryMap: Record<
+      string,
+      {
+        count: number;
+        lastVisitAt: string | null;
+        lastScannedBy: string | null;
+      }
+    > = {};
+
+    for (const act of visitActivitiesRes.data || []) {
+      const meta = (act.metadata || {}) as Record<string, any>;
+      const visitedAt = meta.visited_at || act.created_at;
+      const scannedBy = meta.employee_name
+        ? `${meta.employee_name}${meta.employee_role ? ` (${meta.employee_role})` : ""}`
+        : meta.verified_by || null;
+
+      if (!visitSummaryMap[act.member_id]) {
+        visitSummaryMap[act.member_id] = {
+          count: 1,
+          lastVisitAt: visitedAt,
+          lastScannedBy: scannedBy,
+        };
+      } else {
+        visitSummaryMap[act.member_id].count += 1;
+      }
+    }
 
     // Format members with flattened tags, scores, and welcome credential status
     let formattedMembers = await Promise.all(
@@ -79,6 +114,11 @@ export async function GET(req: NextRequest) {
 
         const tags = (m.member_tags || []).map((t: any) => t.tag);
         const welcomeInfo = welcomeMap[m.id] || null;
+        const visitSummary = visitSummaryMap[m.id];
+        const totalVisits = Math.max(
+          Number(score.events_attended_count || 0),
+          Number(visitSummary?.count || 0)
+        );
 
         // Compute age from birthdate
         let age = null;
@@ -94,7 +134,10 @@ export async function GET(req: NextRequest) {
           engagement_score: score.total_score,
           engagement_category: score.category,
           last_activity_at: score.last_activity_at,
-          events_attended_count: score.events_attended_count,
+          events_attended_count: totalVisits,
+          total_visits: totalVisits,
+          last_visit_at: visitSummary?.lastVisitAt || null,
+          last_scanned_by: visitSummary?.lastScannedBy || null,
           benefits_used_count: score.benefits_used_count,
           referrals_confirmed_count: score.referrals_confirmed_count,
           tags,

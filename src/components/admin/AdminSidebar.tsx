@@ -20,6 +20,8 @@ import {
   Settings,
   LogOut,
   ExternalLink,
+  QrCode,
+  UserCheck,
   X,
 } from "lucide-react";
 
@@ -33,6 +35,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Miembros", href: "/admin/miembros", icon: Users },
+  { name: "Visitas & Scanner", href: "/admin/visitas", icon: QrCode },
+  { name: "Empleados", href: "/admin/empleados", icon: UserCheck },
   { name: "Actividad y Fidelización", href: "/admin/fidelizacion", icon: Award },
   { name: "Segmentos", href: "/admin/segmentos", icon: Filter },
   { name: "Comunicaciones", href: "/admin/comunicaciones", icon: MessageSquare },
