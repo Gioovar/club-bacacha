@@ -27,11 +27,11 @@ async function MemberVerifyCard({ params }: Props) {
 
         <div>
           <h1 className="display text-3xl text-bone uppercase">
-            TOKEN NO VÁLIDO
+            TOKEN NO VÁLIDO O REVOCADO
           </h1>
           <p className="text-sm text-fog font-light mt-3 leading-relaxed">
             El código de verificación no corresponde a ninguna credencial
-            activa o ha expirado.
+            activa o fue revocado por seguridad.
           </p>
         </div>
 
@@ -45,12 +45,22 @@ async function MemberVerifyCard({ params }: Props) {
     );
   }
 
+  const isActive = !member.status || member.status === "ACTIVE" || member.status === "VIP";
+  const fullName = [member.firstName, member.lastName].filter(Boolean).join(" ");
+
   return (
     <div className="bg-coal border border-bone/20 p-8 sm:p-10 rounded-2xl shadow-2xl space-y-6">
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 text-xs font-mono tracking-widest uppercase">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span>MEMBRESÍA VÁLIDA</span>
-      </div>
+      {isActive ? (
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 text-xs font-mono tracking-widest uppercase">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>MEMBRESÍA VÁLIDA · {member.status || "ACTIVE"}</span>
+        </div>
+      ) : (
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/70 border border-red-500/30 text-red-400 text-xs font-mono tracking-widest uppercase">
+          <span className="w-2 h-2 rounded-full bg-red-400" />
+          <span>MEMBRESÍA {member.status === "BLOCKED" ? "SUSPENDIDA" : "INACTIVA"}</span>
+        </div>
+      )}
 
       <div>
         <span className="text-[0.62rem] font-mono tracking-[0.3em] uppercase text-ash block mb-1">
@@ -63,13 +73,13 @@ async function MemberVerifyCard({ params }: Props) {
 
       <div className="py-4 border-y border-bone/10 space-y-2">
         <span className="text-[0.6rem] font-mono tracking-widest uppercase text-ash/80 block">
-          TITULAR
+          TITULAR AUTORIZADO
         </span>
-        <p className="display text-2xl text-bone tracking-wide uppercase">
-          {member.firstName}
+        <p className="display text-2xl sm:text-3xl text-bone tracking-wide uppercase">
+          {fullName}
         </p>
         <p className="text-xs font-mono text-ash">
-          Miembro desde {member.since} · Nivel {member.tier}
+          Miembro desde {member.since} · Nivel {member.tier.replace(/_/g, " ")}
         </p>
       </div>
 

@@ -20,20 +20,19 @@ import {
   Sparkles,
   Shield,
   Phone,
+  QrCode,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  WelcomeCredentialModal,
+  type WelcomeModalMember,
+} from "@/components/admin/WelcomeCredentialModal";
+import { BatchWelcomeModal } from "@/components/admin/BatchWelcomeModal";
+import type { WelcomeStatus } from "@/lib/members/welcome";
 
-interface Member {
-  id: string;
-  member_number: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  email: string;
-  city: string;
+interface Member extends WelcomeModalMember {
   birth_date: string;
   age: number | null;
-  status: string;
-  membership_level: string;
   engagement_score: number;
   engagement_category: string;
   last_activity_at: string;
@@ -42,7 +41,7 @@ interface Member {
   referrals_confirmed_count: number;
   utm_campaign?: string;
   tags: string[];
-  created_at: string;
+  welcome_actor_name?: string | null;
 }
 
 export default function MembersListPage() {
@@ -65,6 +64,11 @@ export default function MembersListPage() {
   const [editStatus, setEditStatus] = useState("ACTIVE");
   const [editLevel, setEditLevel] = useState("MEMBER");
   const [editLoading, setEditLoading] = useState(false);
+
+  // Welcome & Digital Credential Modal (Individual & Batch)
+  const [welcomeMember, setWelcomeMember] = useState<Member | null>(null);
+  const [batchWelcomeOpen, setBatchWelcomeOpen] = useState(false);
+  const [welcomeTemplate, setWelcomeTemplate] = useState<string | undefined>(undefined);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -90,6 +94,9 @@ export default function MembersListPage() {
         setMembers(data.members);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalCount(data.pagination?.total || data.members.length);
+      }
+      if (typeof data.welcomeTemplate === "string") {
+        setWelcomeTemplate(data.welcomeTemplate);
       }
     } catch (err) {
       console.error(err);
@@ -181,15 +188,27 @@ export default function MembersListPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {selectedIds.length > 0 && (
-            <button
-              onClick={() => setTagModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-mono text-xs flex items-center gap-2 transition-colors border border-amber-400/20"
-            >
-              <Tag className="w-3.5 h-3.5" />
-              <span>Etiquetar ({selectedIds.length})</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setBatchWelcomeOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-mono text-xs flex items-center gap-2 transition-colors border border-amber-400/40 cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5 text-amber-400" />
+                <span>Enviar bienvenida ({selectedIds.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTagModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-mono text-xs flex items-center gap-2 transition-colors border border-amber-400/20 cursor-pointer"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Etiquetar ({selectedIds.length})</span>
+              </button>
+            </>
           )}
 
           <a
@@ -409,6 +428,21 @@ export default function MembersListPage() {
                           <span className="text-[0.65rem] font-mono text-neutral-500">
                             Reg: {new Date(m.created_at).toLocaleDateString()}
                           </span>
+                          {m.welcome_confirmed && (
+                            <span
+                              title={
+                                m.welcome_sent_at
+                                  ? `Bienvenida confirmada el ${new Date(
+                                      m.welcome_sent_at
+                                    ).toLocaleString()}`
+                                  : "Bienvenida enviada y confirmada"
+                              }
+                              className="inline-flex items-center gap-1 text-[0.58rem] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-1.5 py-0.5 rounded mt-1 w-fit"
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>Bienvenida enviada</span>
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -501,6 +535,22 @@ export default function MembersListPage() {
                       {/* Actions */}
                       <td className="p-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          {/* Enviar Bienvenida & Credencial Digital QR */}
+                          <button
+                            type="button"
+                            onClick={() => setWelcomeMember(m)}
+                            title="Enviar bienvenida"
+                            aria-label="Enviar bienvenida"
+                            className={`px-2.5 py-1.5 rounded-lg border font-mono text-[0.68rem] inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                              m.welcome_confirmed
+                                ? "bg-emerald-950/60 border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/70"
+                                : "bg-amber-400/15 border-amber-400/40 text-amber-300 hover:bg-amber-400/25"
+                            }`}
+                          >
+                            <QrCode className="w-3.5 h-3.5 shrink-0" />
+                            <span>Enviar bienvenida</span>
+                          </button>
+
                           {/* WhatsApp */}
                           <a
                             href={waUrl}
@@ -675,6 +725,30 @@ export default function MembersListPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Individual Welcome & Digital Credential Modal */}
+      {welcomeMember && (
+        <WelcomeCredentialModal
+          member={welcomeMember}
+          initialGeneralTemplate={welcomeTemplate}
+          onClose={() => setWelcomeMember(null)}
+          onUpdated={() => {
+            fetchMembers();
+          }}
+        />
+      )}
+
+      {/* Batch Welcome Modal */}
+      {batchWelcomeOpen && selectedIds.length > 0 && (
+        <BatchWelcomeModal
+          members={members.filter((m) => selectedIds.includes(m.id))}
+          initialGeneralTemplate={welcomeTemplate}
+          onClose={() => setBatchWelcomeOpen(false)}
+          onUpdated={() => {
+            fetchMembers();
+          }}
+        />
       )}
     </div>
   );

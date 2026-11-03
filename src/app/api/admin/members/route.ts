@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession, logAdminAudit } from "@/lib/admin/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  ensureMemberQrToken,
+  getGeneralWelcomeTemplate,
+  getWelcomeSummaryByMemberIds,
+} from "@/lib/members/welcome-server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,38 +58,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Format members with flattened tags and scores
-    let formattedMembers = (members || []).map((m: any) => {
-      const score = m.member_engagement_scores?.[0] || {
-        total_score: 5,
-        category: "NUEVO_MIEMBRO",
-        last_activity_at: m.created_at,
-        events_attended_count: 0,
-        benefits_used_count: 0,
-        referrals_confirmed_count: 0,
-      };
+    const memberIds = (members || []).map((m: any) => m.id);
+    const [welcomeMap, welcomeTemplate] = await Promise.all([
+      getWelcomeSummaryByMemberIds(supabase, memberIds),
+      getGeneralWelcomeTemplate(supabase),
+    ]);
 
-      const tags = (m.member_tags || []).map((t: any) => t.tag);
+    // Format members with flattened tags, scores, and welcome credential status
+    let formattedMembers = await Promise.all(
+      (members || []).map(async (m: any) => {
+        const qrToken = await ensureMemberQrToken(supabase, m);
+        const score = m.member_engagement_scores?.[0] || {
+          total_score: 5,
+          category: "NUEVO_MIEMBRO",
+          last_activity_at: m.created_at,
+          events_attended_count: 0,
+          benefits_used_count: 0,
+          referrals_confirmed_count: 0,
+        };
 
-      // Compute age from birthdate
-      let age = null;
-      if (m.birth_date) {
-        const diff = Date.now() - new Date(m.birth_date).getTime();
-        age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
-      }
+        const tags = (m.member_tags || []).map((t: any) => t.tag);
+        const welcomeInfo = welcomeMap[m.id] || null;
 
-      return {
-        ...m,
-        age,
-        engagement_score: score.total_score,
-        engagement_category: score.category,
-        last_activity_at: score.last_activity_at,
-        events_attended_count: score.events_attended_count,
-        benefits_used_count: score.benefits_used_count,
-        referrals_confirmed_count: score.referrals_confirmed_count,
-        tags,
-      };
-    });
+        // Compute age from birthdate
+        let age = null;
+        if (m.birth_date) {
+          const diff = Date.now() - new Date(m.birth_date).getTime();
+          age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+        }
+
+        return {
+          ...m,
+          qr_token: qrToken,
+          age,
+          engagement_score: score.total_score,
+          engagement_category: score.category,
+          last_activity_at: score.last_activity_at,
+          events_attended_count: score.events_attended_count,
+          benefits_used_count: score.benefits_used_count,
+          referrals_confirmed_count: score.referrals_confirmed_count,
+          tags,
+          welcome_status: welcomeInfo?.status || null,
+          welcome_confirmed: Boolean(welcomeInfo?.confirmed),
+          welcome_sent_at: welcomeInfo?.sent_at || null,
+          welcome_actor_name: welcomeInfo?.actor_name || null,
+        };
+      })
+    );
 
     if (category && category !== "ALL") {
       formattedMembers = formattedMembers.filter((m: any) => m.engagement_category === category);
@@ -92,6 +112,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       members: formattedMembers,
+      welcomeTemplate,
       pagination: {
         page,
         limit,

@@ -10,7 +10,13 @@ import {
   AlertCircle,
   Award,
   RefreshCw,
+  MessageSquare,
+  QrCode,
 } from "lucide-react";
+import {
+  DEFAULT_WELCOME_TEMPLATE,
+  renderWelcomeMessage,
+} from "@/lib/members/welcome";
 
 export default function AdminSettingsPage() {
   // Password change state
@@ -41,6 +47,14 @@ export default function AdminSettingsPage() {
   const [savingRules, setSavingRules] = useState(false);
   const [rulesStatus, setRulesStatus] = useState<string | null>(null);
 
+  // Welcome template state
+  const [welcomeTemplate, setWelcomeTemplate] = useState(DEFAULT_WELCOME_TEMPLATE);
+  const [savingWelcome, setSavingWelcome] = useState(false);
+  const [welcomeStatus, setWelcomeStatus] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
   useEffect(() => {
     fetch("/api/admin/config")
       .then((res) => (res.ok ? res.json() : null))
@@ -50,6 +64,12 @@ export default function AdminSettingsPage() {
         }
         if (data?.config?.loyalty_thresholds) {
           setThresholds(data.config.loyalty_thresholds);
+        }
+        const tplConfig = data?.config?.welcome_message_template;
+        if (typeof tplConfig === "string" && tplConfig.trim()) {
+          setWelcomeTemplate(tplConfig);
+        } else if (tplConfig && typeof tplConfig.text === "string" && tplConfig.text.trim()) {
+          setWelcomeTemplate(tplConfig.text);
         }
       });
   }, []);
@@ -119,6 +139,44 @@ export default function AdminSettingsPage() {
       }
     } finally {
       setSavingRules(false);
+    }
+  };
+
+  const handleSaveWelcomeTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!welcomeTemplate.trim()) return;
+    setSavingWelcome(true);
+    setWelcomeStatus(null);
+
+    try {
+      const res = await fetch("/api/admin/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          welcomeMessageTemplate: welcomeTemplate.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setWelcomeStatus({
+          success: true,
+          message:
+            "Plantilla general de bienvenida guardada en Supabase. Se aplicará por defecto al abrir el modal de bienvenida.",
+        });
+        setTimeout(() => setWelcomeStatus(null), 4500);
+      } else {
+        setWelcomeStatus({
+          success: false,
+          message: "No se pudo guardar la plantilla general.",
+        });
+      }
+    } catch {
+      setWelcomeStatus({
+        success: false,
+        message: "Error de conexión al guardar la plantilla.",
+      });
+    } finally {
+      setSavingWelcome(false);
     }
   };
 
@@ -293,6 +351,111 @@ export default function AdminSettingsPage() {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* General Welcome Message Template Section */}
+      <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-850 space-y-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <QrCode className="w-4 h-4 text-amber-400" />
+            <div>
+              <h2 className="text-sm font-semibold text-white font-mono uppercase tracking-wide">
+                PLANTILLA GENERAL DE BIENVENIDA Y CREDENCIAL DIGITAL
+              </h2>
+              <p className="text-[0.68rem] font-mono text-neutral-400 mt-0.5">
+                Este texto se precarga al presionar &quot;Enviar bienvenida&quot; en el directorio de miembros. Las ediciones individuales para un socio no alteran esta plantilla general.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setWelcomeTemplate(DEFAULT_WELCOME_TEMPLATE)}
+            className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white text-xs font-mono flex items-center gap-1.5 self-start sm:self-auto transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+            <span>Restaurar Predeterminado</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSaveWelcomeTemplate} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-[0.68rem] font-mono text-neutral-400 uppercase">
+                Editor de Plantilla General
+              </label>
+              <div className="flex items-center gap-1.5 text-[0.65rem] font-mono">
+                <span className="text-neutral-500">Variables dinámicas:</span>
+                <button
+                  type="button"
+                  onClick={() => setWelcomeTemplate((prev) => `${prev} {nombre}`)}
+                  className="px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                >
+                  &#123;nombre&#125;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWelcomeTemplate((prev) => `${prev} {numero}`)}
+                  className="px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                >
+                  &#123;numero&#125;
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              value={welcomeTemplate}
+              onChange={(e) => setWelcomeTemplate(e.target.value)}
+              rows={9}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 text-xs text-white font-mono leading-relaxed focus:outline-none focus:border-amber-400"
+              required
+            />
+
+            {welcomeStatus && (
+              <div
+                className={`p-3 rounded-xl border text-xs font-mono flex items-center gap-2 ${
+                  welcomeStatus.success
+                    ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                    : "bg-red-950/60 border-red-500/40 text-red-300"
+                }`}
+              >
+                {welcomeStatus.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                )}
+                <span>{welcomeStatus.message}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={savingWelcome || !welcomeTemplate.trim()}
+              className="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs font-mono uppercase tracking-wider flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>
+                {savingWelcome ? "Guardando Plantilla..." : "Guardar Plantilla General"}
+              </span>
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <span className="block text-[0.68rem] font-mono text-neutral-400 uppercase">
+              Vista Previa con Datos Reales (Ejemplo Socio #000049)
+            </span>
+            <div className="p-4 rounded-xl bg-neutral-900/70 border border-neutral-850 text-xs font-mono text-neutral-200 whitespace-pre-wrap leading-relaxed min-h-[210px]">
+              {renderWelcomeMessage(welcomeTemplate, {
+                first_name: "Laura",
+                last_name: "Chavez",
+                member_number: "000049",
+              })}
+            </div>
+            <p className="text-[0.65rem] font-mono text-neutral-500">
+              &#123;nombre&#125; se sustituye automáticamente por el nombre real del miembro y &#123;numero&#125; por su número oficial con formato #000049.
+            </p>
+          </div>
+        </form>
       </div>
     </div>
   );

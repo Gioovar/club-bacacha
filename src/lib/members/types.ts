@@ -21,6 +21,7 @@ export type PublicMember = {
   city: string;
   since: number;
   tier: MemberTier;
+  status?: MemberStatus;
   /** Opaque token used in the member QR → /m/{qrToken}. Not the UUID. */
   qrToken: string;
   /** Available redeemable loyalty points */

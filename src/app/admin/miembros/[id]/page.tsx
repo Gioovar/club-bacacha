@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Sparkles,
 } from "lucide-react";
+import { WelcomeCredentialModal } from "@/components/admin/WelcomeCredentialModal";
 
 type TabKey =
   | "personales"
@@ -55,6 +56,7 @@ export default function MemberDetailPage() {
   const [waModalOpen, setWaModalOpen] = useState(false);
   const [waMessage, setWaMessage] = useState("");
   const [waTemplate, setWaTemplate] = useState("bienvenida");
+  const [welcomeCredentialOpen, setWelcomeCredentialOpen] = useState(false);
 
   const fetchMember = async () => {
     setLoading(true);
@@ -187,8 +189,17 @@ export default function MemberDetailPage() {
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={() => setWelcomeCredentialOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-400/15 border border-amber-400/40 text-amber-300 hover:bg-amber-400/25 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <QrCode className="w-3.5 h-3.5 text-amber-400" />
+            <span>Enviar bienvenida</span>
+          </button>
+
+          <button
             onClick={() => openWhatsAppWithTemplate("bienvenida")}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/70 text-xs font-mono flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/70 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Contactar WhatsApp</span>
@@ -741,6 +752,17 @@ export default function MemberDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Welcome & Digital Credential Modal */}
+      {welcomeCredentialOpen && (
+        <WelcomeCredentialModal
+          member={member}
+          onClose={() => setWelcomeCredentialOpen(false)}
+          onUpdated={() => {
+            fetchMember();
+          }}
+        />
       )}
     </div>
   );

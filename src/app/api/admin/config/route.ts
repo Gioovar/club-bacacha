@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { scoringRules, loyaltyThresholds } = body;
+    const { scoringRules, loyaltyThresholds, welcomeMessageTemplate } = body;
 
     if (scoringRules) {
       await supabase.from("admin_config").upsert({
@@ -65,9 +65,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (typeof welcomeMessageTemplate === "string" && welcomeMessageTemplate.trim().length > 0) {
+      await supabase.from("admin_config").upsert({
+        key: "welcome_message_template",
+        value: {
+          text: welcomeMessageTemplate.trim(),
+          updated_by: session.user.name || "Administrador Compartido",
+          updated_at: new Date().toISOString(),
+        },
+        description: "Plantilla general predeterminada para el envío de bienvenida y credencial digital",
+        updated_at: new Date().toISOString(),
+      });
+    }
+
     await logAdminAudit(
       "UPDATE_SYSTEM_CONFIG",
-      { scoringRules, loyaltyThresholds },
+      {
+        scoringRules: Boolean(scoringRules),
+        loyaltyThresholds: Boolean(loyaltyThresholds),
+        welcomeMessageTemplateUpdated: typeof welcomeMessageTemplate === "string",
+      },
       {
         actorName: session.user.name,
         adminUserId: session.user.id,

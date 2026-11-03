@@ -192,13 +192,30 @@ class SupabaseMemberRepository implements MemberRepository {
 
   async findByQrToken(token: string): Promise<PublicMember | null> {
     if (!this.supabase) return null;
+    const cleanToken = token.trim();
+    if (!cleanToken) return null;
+
     const { data, error } = await this.supabase
       .from("members")
-      .select("member_number, first_name, last_name, city, created_at, membership_level, qr_token, status")
-      .eq("qr_token", token)
+      .select("id, member_number, first_name, last_name, city, created_at, membership_level, qr_token, status")
+      .eq("qr_token", cleanToken)
       .maybeSingle();
 
     if (error || !data) return null;
+
+    // Registrar actividad de escaneo QR para trazabilidad de validaciones
+    try {
+      await this.supabase.from("member_activity").insert({
+        member_id: data.id,
+        activity_type: "QR_SCAN",
+        metadata: {
+          scanned_at: new Date().toISOString(),
+          status_at_scan: data.status,
+        },
+      });
+    } catch {
+      // No bloquear la verificación pública si falla la escritura de bitácora
+    }
 
     return {
       memberNumber: parseInt(data.member_number, 10),
@@ -207,6 +224,7 @@ class SupabaseMemberRepository implements MemberRepository {
       city: data.city,
       since: new Date(data.created_at).getFullYear(),
       tier: data.membership_level as MemberTier,
+      status: data.status as MemberStatus,
       qrToken: data.qr_token,
     };
   }
