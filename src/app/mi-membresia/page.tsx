@@ -10,6 +10,10 @@ import { loadMember, saveMember, clearMember } from "@/lib/members/client-store"
 import type { PublicMember, LoyaltyReward, LoyaltyTransaction, LoyaltyRedemption } from "@/lib/members/types";
 import { referralUrl } from "@/lib/site";
 import { demoContent } from "@/lib/content/demo";
+import {
+  OFFICIAL_PROMO_BULLETS,
+  OFFICIAL_PROMO_VENUE,
+} from "@/lib/benefits/clauses";
 
 export default function MiMembresiaPage() {
   const [member, setMember] = useState<PublicMember | null>(null);
@@ -36,6 +40,14 @@ export default function MiMembresiaPage() {
     pointsBalance: number;
     transactions: LoyaltyTransaction[];
     rewards: LoyaltyReward[];
+    promotions?: Array<{
+      id: string;
+      title: string;
+      phrase: string;
+      venue: string;
+      terms: string;
+      imageUrl?: string;
+    }>;
     redemptions: LoyaltyRedemption[];
   } | null>(null);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
@@ -56,38 +68,39 @@ export default function MiMembresiaPage() {
     const m = loadMember();
     setMember(m);
     setLoaded(true);
-
-    if (m?.qrToken) {
-      setProfileLoading(true);
-      fetch(`/api/members/profile?qrToken=${encodeURIComponent(m.qrToken)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (data?.member) {
-            setProfile({
-              birthDate: data.member.birthDate,
-              relationshipStatus: data.member.relationshipStatus || "PREFIERO_NO_DECIR",
-              city: data.member.city,
-            });
-            if (data.member.birthDate) {
-              const [y, m, d] = data.member.birthDate.split("-");
-              setBYear(y);
-              setBMonth(String(Number(m)));
-              setBDay(String(Number(d)));
-            }
-          }
-        })
-        .finally(() => setProfileLoading(false));
-
-      // Fetch loyalty data
-      setLoyaltyLoading(true);
-      fetch(`/api/members/loyalty?qrToken=${encodeURIComponent(m.qrToken)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (data) setLoyaltyData(data);
-        })
-        .finally(() => setLoyaltyLoading(false));
-    }
   }, []);
+
+  useEffect(() => {
+    if (!member?.qrToken) return;
+    setProfileLoading(true);
+    fetch(`/api/members/profile?qrToken=${encodeURIComponent(member.qrToken)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.member) {
+          setProfile({
+            birthDate: data.member.birthDate,
+            relationshipStatus: data.member.relationshipStatus || "PREFIERO_NO_DECIR",
+            city: data.member.city,
+          });
+          if (data.member.birthDate) {
+            const [y, m, d] = data.member.birthDate.split("-");
+            setBYear(y);
+            setBMonth(String(Number(m)));
+            setBDay(String(Number(d)));
+          }
+        }
+      })
+      .finally(() => setProfileLoading(false));
+
+    // Fetch loyalty data
+    setLoyaltyLoading(true);
+    fetch(`/api/members/loyalty?qrToken=${encodeURIComponent(member.qrToken)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setLoyaltyData(data);
+      })
+      .finally(() => setLoyaltyLoading(false));
+  }, [member?.qrToken]);
 
   const handleUpdateRelationship = async (status: string) => {
     if (!member) return;
@@ -169,11 +182,14 @@ export default function MiMembresiaPage() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailInput }),
+        body: JSON.stringify({ identifier: emailInput, email: emailInput }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setAuthError(data.error || "No se pudo enviar el código.");
+        setAuthError(data.error || "No se encontró tu membresía.");
+      } else if (data.directLogin && data.member) {
+        saveMember(data.member);
+        setMember(data.member);
       } else {
         setOtpSent(true);
       }
@@ -379,6 +395,31 @@ export default function MiMembresiaPage() {
                 {/* TAB 1: REWARDS CATALOG */}
                 {loyaltyTab === "rewards" && (
                   <div className="space-y-6">
+                    {/* Cláusulas Oficiales de Promociones: Club Bacachá | Cantina Dolores */}
+                    <div className="p-4 sm:p-5 rounded-xl bg-amber-400/10 border border-amber-400/35 space-y-2">
+                      <p className="font-mono text-xs tracking-[0.2em] uppercase text-amber-400 font-bold">
+                        {OFFICIAL_PROMO_VENUE}
+                      </p>
+                      <ul className="space-y-1 text-xs font-mono text-bone/90">
+                        {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                          <li key={clause} className="flex items-start gap-2">
+                            <span className="text-amber-400 font-bold">•</span>
+                            <span>{clause}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-[11px] font-mono text-fog pt-1.5 border-t border-amber-400/20">
+                        Únete al Club Bacachá en{" "}
+                        <a
+                          href="https://www.bacacha.com"
+                          className="text-amber-400 underline underline-offset-4"
+                        >
+                          &ldquo;www.bacacha.com&rdquo;
+                        </a>{" "}
+                        (https://www.bacacha.com).
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                       {(loyaltyData?.rewards || []).map((reward) => {
                         const curBalance = loyaltyData ? loyaltyData.pointsBalance : 50;
@@ -392,7 +433,7 @@ export default function MiMembresiaPage() {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-[0.6rem] font-mono tracking-widest text-amber-400 uppercase px-2 py-0.5 rounded bg-amber-400/10">
-                                  {reward.category}
+                                  {OFFICIAL_PROMO_VENUE}
                                 </span>
                                 <span className="display text-lg text-amber-300 font-bold font-mono">
                                   {reward.pointsCost} PTS
@@ -407,11 +448,14 @@ export default function MiMembresiaPage() {
                                 {reward.description}
                               </p>
 
-                              {reward.terms && (
-                                <p className="text-[0.65rem] text-ash/80 font-mono pt-2 border-t border-bone/5">
-                                  ℹ️ {reward.terms}
-                                </p>
-                              )}
+                              <div className="text-[0.65rem] text-bone/80 font-mono pt-2 border-t border-bone/10 space-y-1">
+                                {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                                  <div key={clause} className="flex items-start gap-1.5">
+                                    <span className="text-amber-400">•</span>
+                                    <span>{clause}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
 
                             <div className="pt-5 mt-4 border-t border-bone/10 flex items-center justify-between gap-3">
@@ -860,45 +904,103 @@ export default function MiMembresiaPage() {
               {/* Active Benefits Quick View */}
               <div>
                 <h3 className="display text-2xl sm:text-3xl uppercase mb-6 pb-4 border-b border-bone/10">
-                  TUS BENEFICIOS DISPONIBLES
+                  TUS BENEFICIOS Y PROMOCIONES DISPONIBLES
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {demoContent.benefits.items.slice(0, 3).map((b) => (
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {(loyaltyData?.promotions && loyaltyData.promotions.length > 0
+                    ? loyaltyData.promotions
+                    : [
+                        {
+                          id: "promo-botellas",
+                          title: "Botellas de Edición Especial Club Bacachá",
+                          phrase: "Acceso prioritario a botellas seriadas y etiquetas reservadas para miembros activos del club.",
+                          venue: OFFICIAL_PROMO_VENUE,
+                          terms: "",
+                        },
+                        {
+                          id: "promo-mojitos",
+                          title: "2x1 en Mojitos de un Litro",
+                          phrase: "Presenta tu QR de socio en barra durante las horas marcadas y duplica la ronda de la casa.",
+                          venue: OFFICIAL_PROMO_VENUE,
+                          terms: "",
+                        },
+                        {
+                          id: "promo-playeras",
+                          title: "Playeras Oficiales Club Bacachá",
+                          phrase: "Drops limitados de merch oficial exclusivos para quienes portan la membresía.",
+                          venue: OFFICIAL_PROMO_VENUE,
+                          terms: "",
+                        },
+                      ]
+                  ).map((b) => (
                     <div
                       key={b.id}
-                      className="p-6 bg-coal border border-bone/10 flex flex-col justify-between"
+                      className="p-6 bg-coal border border-bone/15 rounded-xl flex flex-col justify-between space-y-4"
                     >
-                      <div>
-                        <span className="text-[0.6rem] tracking-[0.3em] uppercase text-ash block mb-2">
-                          EXCLUSIVO CLUB
+                      <div className="space-y-2.5">
+                        <span className="text-[0.62rem] font-mono tracking-[0.22em] uppercase text-amber-400 font-bold block">
+                          {b.venue || OFFICIAL_PROMO_VENUE}
                         </span>
-                        <h4 className="display text-xl uppercase mb-2">{b.title}</h4>
+                        <h4 className="display text-xl uppercase text-bone">{b.title}</h4>
                         <p className="text-xs text-fog font-light leading-relaxed">
                           {b.phrase}
                         </p>
+                        <ul className="space-y-1 text-[11px] font-mono text-bone/85 border-t border-bone/10 pt-3">
+                          {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                            <li key={clause} className="flex items-start gap-1.5">
+                              <span className="text-amber-400 font-bold">•</span>
+                              <span>{clause}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <div className="pt-6 mt-6 border-t border-bone/10 flex justify-between items-center text-xs">
-                        <span className="text-bone font-mono">ACTIVO</span>
-                        <span className="text-ash tracking-widest uppercase">
+                      <div className="pt-4 border-t border-bone/10 flex justify-between items-center text-xs">
+                        <span className="text-emerald-400 font-mono font-bold">ACTIVO</span>
+                        <span className="text-ash tracking-widest uppercase font-mono">
                           Mostrar QR
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Bloque Oficial de Cláusulas */}
+                <div className="p-6 bg-coal border border-amber-400/30 rounded-2xl space-y-3">
+                  <p className="font-mono text-xs tracking-[0.25em] uppercase text-amber-400 font-bold">
+                    {OFFICIAL_PROMO_VENUE}
+                  </p>
+                  <ul className="space-y-1.5 text-xs sm:text-sm font-mono text-bone/90">
+                    {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                      <li key={clause} className="flex items-start gap-2">
+                        <span className="text-amber-400 font-bold">•</span>
+                        <span>{clause}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs font-mono text-fog pt-2 border-t border-bone/10">
+                    Únete al Club Bacachá en{" "}
+                    <a
+                      href="https://www.bacacha.com"
+                      className="text-amber-400 underline underline-offset-4"
+                    >
+                      &ldquo;www.bacacha.com&rdquo;
+                    </a>{" "}
+                    (https://www.bacacha.com).
+                  </p>
+                </div>
               </div>
             </div>
           ) : loaded ? (
-            /* Passwordless Member Login */
+            /* Direct Member Access Without Password or Email OTP Friction */
             <div className="text-center py-16 max-w-md mx-auto space-y-8">
               <div>
-                <span className="eyebrow text-ash block mb-2">ACCESO A MIEMBROS</span>
+                <span className="eyebrow text-ash block mb-2">ACCESO DIRECTO A MIEMBROS</span>
                 <h1 className="display text-3xl sm:text-5xl uppercase">
                   INGRESAR A MI MEMBRESÍA
                 </h1>
                 <p className="text-sm text-fog font-light mt-3 leading-relaxed">
-                  Ingresa con tu correo. Sin contraseñas: te enviamos un código o
-                  enlace seguro de acceso inmediato.
+                  Ingresa tu correo electrónico, teléfono o número de socio (#000049) para abrir tu credencial QR de inmediato, sin contraseñas.
                 </p>
               </div>
 
@@ -908,70 +1010,55 @@ export default function MiMembresiaPage() {
                 </div>
               )}
 
-              {!otpSent ? (
-                <form onSubmit={handleSendOtp} className="space-y-6 text-left">
-                  <div className="field">
-                    <label htmlFor="login-email" className="field-label">
-                      CORREO ELECTRÓNICO REGISTRADO
-                    </label>
-                    <input
-                      id="login-email"
-                      type="email"
-                      required
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="tu@correo.com"
-                      className="field-input"
-                    />
-                  </div>
+              <form onSubmit={handleSendOtp} className="space-y-6 text-left">
+                <div className="field">
+                  <label htmlFor="login-email" className="field-label">
+                    CORREO, TELÉFONO O # DE SOCIO
+                  </label>
+                  <input
+                    id="login-email"
+                    type="text"
+                    required
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="tu@correo.com, 7441234567 o #000049"
+                    className="field-input"
+                  />
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn btn-primary w-full !min-h-[3.5rem] text-xs tracking-[0.25em]"
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary w-full !min-h-[3.5rem] text-xs tracking-[0.25em]"
+                >
+                  {loading ? "BUSCANDO MEMBRESÍA..." : "ENTRAR A MI MEMBRESÍA"}
+                </button>
+              </form>
+
+              {/* Cláusulas Oficiales visibles también en la portada de Mi Membresía */}
+              <div className="p-5 bg-coal border border-amber-400/30 rounded-2xl text-left space-y-2.5">
+                <p className="font-mono text-xs tracking-[0.2em] uppercase text-amber-400 font-bold">
+                  {OFFICIAL_PROMO_VENUE}
+                </p>
+                <ul className="space-y-1.5 text-xs font-mono text-bone/90">
+                  {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                    <li key={clause} className="flex items-start gap-2">
+                      <span className="text-amber-400 font-bold">•</span>
+                      <span>{clause}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] font-mono text-fog pt-2 border-t border-bone/10">
+                  Únete al Club Bacachá en{" "}
+                  <a
+                    href="https://www.bacacha.com"
+                    className="text-amber-400 underline underline-offset-4"
                   >
-                    {loading ? "ENVIANDO..." : "ENVIAR CÓDIGO / LINK"}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-6 text-left">
-                  <div className="field">
-                    <label htmlFor="login-otp" className="field-label">
-                      CÓDIGO DE 6 DÍGITOS
-                    </label>
-                    <input
-                      id="login-otp"
-                      type="text"
-                      maxLength={8}
-                      required
-                      value={otpToken}
-                      onChange={(e) => setOtpToken(e.target.value)}
-                      placeholder="123456"
-                      className="field-input text-center tracking-[0.5em] text-2xl font-mono"
-                    />
-                    <p className="text-[0.7rem] text-ash font-mono mt-2">
-                      Enviamos el código a: {emailInput}
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn btn-primary w-full !min-h-[3.5rem] text-xs tracking-[0.25em]"
-                    >
-                      {loading ? "VERIFICANDO..." : "VERIFICAR Y ENTRAR"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOtpSent(false)}
-                      className="text-xs text-ash tracking-wider uppercase underline w-full text-center block pt-2"
-                    >
-                      Cambiar correo
-                    </button>
-                  </div>
-                </form>
-              )}
+                    &ldquo;www.bacacha.com&rdquo;
+                  </a>{" "}
+                  (https://www.bacacha.com).
+                </p>
+              </div>
 
               <div className="pt-8 border-t border-bone/10 space-y-4">
                 <p className="text-xs text-ash uppercase tracking-wider">

@@ -46,3 +46,4 @@ export function ensureOfficialPromoClauses(rawTerms?: string | null): string {
 
   return `${trimmed}\n\n${OFFICIAL_PROMO_CLAUSES_TEXT}`;
 }
+

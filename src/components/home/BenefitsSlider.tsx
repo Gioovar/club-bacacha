@@ -68,6 +68,40 @@ export function BenefitsSlider({ eyebrow, titleLines, items }: Props) {
         </div>
       </div>
 
+      {/* Cláusulas Oficiales de Promociones: Club Bacachá | Cantina Dolores (Destacado arriba) */}
+      <div className="container-x mb-10">
+        <div className="border border-amber-400/35 bg-ink/80 p-5 sm:p-6 rounded-2xl">
+          <p className="font-mono text-xs sm:text-sm tracking-[0.22em] uppercase text-amber-400 font-bold mb-2.5">
+            {OFFICIAL_PROMO_VENUE}
+          </p>
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs sm:text-sm text-bone/95 font-mono mb-3">
+            {OFFICIAL_PROMO_BULLETS.map((clause) => (
+              <li key={clause} className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <span>{clause}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs font-mono text-fog pt-2.5 border-t border-bone/10">
+            Únete al Club Bacachá en{" "}
+            <a
+              href="https://www.bacacha.com"
+              className="text-amber-400 underline underline-offset-4 hover:text-amber-300"
+            >
+              &ldquo;www.bacacha.com&rdquo;
+            </a>{" "}
+            (
+            <a
+              href="https://www.bacacha.com"
+              className="text-bone/80 hover:text-white underline underline-offset-4"
+            >
+              https://www.bacacha.com
+            </a>
+            ).
+          </p>
+        </div>
+      </div>
+
       {/* Benefits Content */}
       {items.length === 0 ? (
         <div className="container-x py-12">

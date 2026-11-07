@@ -7,6 +7,7 @@ import {
   computeOperationalShiftDate,
   extractQrTokenFromScan,
   getScannerSession,
+  getStaffEmployeeById,
   getVisitLoyaltyRules,
   registerAtomicStaffVisit,
 } from "@/lib/scanner/staff-server";
@@ -37,34 +38,6 @@ async function resolveQrTokenInput(
 
 export async function POST(req: NextRequest) {
   try {
-    // El registro y consulta de scanner requiere sesión de empleado autorizado o administrador
-    const scannerSession = await getScannerSession(req);
-    const adminSession = scannerSession ? null : await getAdminSession(req);
-
-    if (!scannerSession && !adminSession) {
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "UNAUTHORIZED",
-          error:
-            "Se requiere una sesión activa de empleado autorizado en /scanner para consultar o registrar visitas.",
-        },
-        { status: 401 }
-      );
-    }
-
-    const activeActor = scannerSession
-      ? {
-          id: scannerSession.employee.id,
-          name: scannerSession.employee.name,
-          role: scannerSession.employee.role,
-        }
-      : {
-          id: `admin_${adminSession!.user.id}`,
-          name: adminSession!.user.name,
-          role: "GERENTE",
-        };
-
     const supabase = createAdminClient();
     if (!supabase) {
       return NextResponse.json(
@@ -76,10 +49,50 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "consult");
     const rawQrInput = String(body.qrToken || body.token || "").trim();
+    const requestedEmployeeId = String(body.employeeId || "").trim();
+    const requestedEmployeeName = String(body.employeeName || "").trim();
+    const requestedEmployeeRole = String(body.employeeRole || "").trim();
+
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
       "unknown";
+
+    // Identificar al empleado u operador activo sin requerir contraseña
+    let activeActor = {
+      id: "staff_general",
+      name: requestedEmployeeName || "Staff Club Bacachá",
+      role: requestedEmployeeRole || "STAFF",
+    };
+
+    if (requestedEmployeeId && requestedEmployeeId !== "staff_general") {
+      const emp = await getStaffEmployeeById(supabase, requestedEmployeeId);
+      if (emp && emp.status !== "INACTIVO") {
+        activeActor = {
+          id: emp.id,
+          name: emp.name,
+          role: emp.role,
+        };
+      }
+    } else {
+      const scannerSession = await getScannerSession(req);
+      if (scannerSession) {
+        activeActor = {
+          id: scannerSession.employee.id,
+          name: scannerSession.employee.name,
+          role: scannerSession.employee.role,
+        };
+      } else {
+        const adminSession = await getAdminSession(req);
+        if (adminSession && !requestedEmployeeName) {
+          activeActor = {
+            id: `admin_${adminSession.user.id}`,
+            name: adminSession.user.name,
+            role: "GERENTE",
+          };
+        }
+      }
+    }
 
     if (!rawQrInput) {
       return NextResponse.json(

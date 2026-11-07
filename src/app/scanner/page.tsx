@@ -8,22 +8,13 @@ import {
   Camera,
   CameraOff,
   CheckCircle2,
-  Clock,
-  Eye,
-  EyeOff,
   Gift,
   History,
-  KeyRound,
   Loader2,
-  Lock,
-  LogOut,
-  Phone,
   QrCode,
   RefreshCw,
   Search,
   ShieldAlert,
-  ShieldCheck,
-  Sparkles,
   UserCheck,
   X,
 } from "lucide-react";
@@ -34,7 +25,7 @@ interface StaffProfile {
   name: string;
   phone: string;
   username: string;
-  role: "MESERO" | "HOSTESS" | "SUPERVISOR" | "GERENTE";
+  role: "MESERO" | "HOSTESS" | "SUPERVISOR" | "GERENTE" | "STAFF";
   status: string;
   visits_registered_count: number;
 }
@@ -48,6 +39,7 @@ interface RecentOperation {
   visitNumber: number;
   shiftDate: string;
   visitedAt: string;
+  employeeName?: string;
 }
 
 interface ShiftCheckState {
@@ -100,30 +92,21 @@ function formatTimeMX(iso: string): string {
 }
 
 export default function ScannerPage() {
-  // Estado de sesión
-  const [checkingSession, setCheckingSession] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [employee, setEmployee] = useState<StaffProfile | null>(null);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [loadingInit, setLoadingInit] = useState(true);
+  const [employeesList, setEmployeesList] = useState<StaffProfile[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] =
+    useState<string>("staff_general");
+  const [operatorName, setOperatorName] = useState<string>(
+    "Staff Club Bacachá"
+  );
+  const [operatorRole, setOperatorRole] = useState<string>("HOSTESS");
+
   const [shiftDate, setShiftDate] = useState("");
   const [shiftVisitsCount, setShiftVisitsCount] = useState(0);
+  const [totalVisitsCount, setTotalVisitsCount] = useState(0);
   const [recentOperations, setRecentOperations] = useState<RecentOperation[]>(
     []
   );
-
-  // Formulario de Login
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState("");
-  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
-
-  // Cambio obligatorio de contraseña temporal
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [changePasswordError, setChangePasswordError] = useState("");
 
   // Estado de Cámara QR en vivo
   const [cameraActive, setCameraActive] = useState(false);
@@ -153,36 +136,44 @@ export default function ScannerPage() {
   const [visitDuplicate, setVisitDuplicate] =
     useState<VisitDuplicateResult | null>(null);
 
-  const fetchSessionStatus = useCallback(async () => {
+  const fetchScannerData = useCallback(async () => {
     try {
       const res = await fetch("/api/scanner/auth", { cache: "no-store" });
-      if (!res.ok) {
-        setAuthenticated(false);
-        setEmployee(null);
-        return;
-      }
+      if (!res.ok) return;
       const data = await res.json();
-      if (data.authenticated && data.employee) {
-        setAuthenticated(true);
-        setEmployee(data.employee);
-        setMustChangePassword(Boolean(data.mustChangePassword));
-        setShiftDate(data.shiftDate || "");
-        setShiftVisitsCount(Number(data.shiftVisitsCount || 0));
-        setRecentOperations(data.recentOperations || []);
-      } else {
-        setAuthenticated(false);
-        setEmployee(null);
+
+      setShiftDate(data.shiftDate || "");
+      setShiftVisitsCount(Number(data.shiftVisitsCount || 0));
+      setTotalVisitsCount(Number(data.totalVisitsCount || 0));
+      setRecentOperations(data.recentOperations || []);
+
+      if (Array.isArray(data.employees)) {
+        setEmployeesList(data.employees);
+        const savedEmpId =
+          typeof window !== "undefined"
+            ? localStorage.getItem("bacacha_scanner_emp_id")
+            : null;
+        if (savedEmpId) {
+          const found = data.employees.find(
+            (e: StaffProfile) => e.id === savedEmpId
+          );
+          if (found) {
+            setSelectedEmployeeId(found.id);
+            setOperatorName(found.name);
+            setOperatorRole(found.role);
+          }
+        }
       }
     } catch {
-      setAuthenticated(false);
+      // Manejo silencioso
     } finally {
-      setCheckingSession(false);
+      setLoadingInit(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSessionStatus();
-  }, [fetchSessionStatus]);
+    fetchScannerData();
+  }, [fetchScannerData]);
 
   const stopCamera = useCallback(() => {
     if (rafRef.current) {
@@ -221,7 +212,13 @@ export default function ScannerPage() {
         const res = await fetch("/api/scanner/scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "consult", qrToken: cleaned }),
+          body: JSON.stringify({
+            action: "consult",
+            qrToken: cleaned,
+            employeeId: selectedEmployeeId,
+            employeeName: operatorName,
+            employeeRole: operatorRole,
+          }),
         });
         const data = await res.json();
 
@@ -238,7 +235,6 @@ export default function ScannerPage() {
         setFicha(data.ficha);
         setShiftCheck(data.shiftCheck || null);
 
-        // Si el socio ya registró visita en esta jornada, mostrar aviso de duplicado directamente y permitir consulta
         if (data.shiftCheck?.alreadyRegisteredInShift && data.ficha) {
           setVisitDuplicate({
             memberName: data.ficha.member.full_name,
@@ -256,10 +252,9 @@ export default function ScannerPage() {
         setScanLoading(false);
       }
     },
-    [stopCamera]
+    [stopCamera, selectedEmployeeId, operatorName, operatorRole]
   );
 
-  // Solicitar permiso de cámara ÚNICAMENTE cuando el empleado presiona ACTIVAR CÁMARA
   const startCamera = async () => {
     setCameraError("");
     setScanError("");
@@ -295,7 +290,6 @@ export default function ScannerPage() {
         video.setAttribute("playsinline", "true");
         await video.play().catch(() => {});
 
-        // Detector nativo si está disponible + decodificador jsQR universal para iPhone Safari y Android Chrome
         let nativeDetector: any = null;
         if (typeof window !== "undefined" && "BarcodeDetector" in window) {
           try {
@@ -403,6 +397,9 @@ export default function ScannerPage() {
         body: JSON.stringify({
           action: "register_visit",
           qrToken: tokenToSend,
+          employeeId: selectedEmployeeId,
+          employeeName: operatorName,
+          employeeRole: operatorRole,
         }),
       });
       const data = await res.json();
@@ -418,7 +415,10 @@ export default function ScannerPage() {
 
       if (data.duplicate) {
         setVisitDuplicate({
-          memberName: data.ficha?.member?.full_name || ficha?.member.full_name || "Socio",
+          memberName:
+            data.ficha?.member?.full_name ||
+            ficha?.member.full_name ||
+            "Socio",
           memberNumberFormatted:
             data.ficha?.member?.formatted_number ||
             ficha?.member.formatted_number ||
@@ -439,7 +439,10 @@ export default function ScannerPage() {
         });
       } else {
         setVisitSuccess({
-          memberName: data.ficha?.member?.full_name || ficha?.member.full_name || "Socio",
+          memberName:
+            data.ficha?.member?.full_name ||
+            ficha?.member.full_name ||
+            "Socio",
           memberNumberFormatted:
             data.ficha?.member?.formatted_number ||
             ficha?.member.formatted_number ||
@@ -449,7 +452,7 @@ export default function ScannerPage() {
             ficha?.member.member_number ||
             "000000",
           visitNumber: data.visitNumber,
-          employeeName: data.employeeName || employee?.name || "Staff",
+          employeeName: data.employeeName || operatorName || "Staff",
           visitedAt: data.visitedAt,
           pointsAwarded: Number(data.pointsAwarded || 0),
         });
@@ -460,103 +463,13 @@ export default function ScannerPage() {
           firstEmployeeName: data.employeeName,
           firstEmployeeRole: data.employeeRole,
         });
-        await fetchSessionStatus();
+        await fetchScannerData();
       }
     } catch {
       setScanError("Error de conexión al registrar la visita.");
     } finally {
       setRegisteringVisit(false);
     }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setLoginLoading(true);
-
-    try {
-      const res = await fetch("/api/scanner/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "login",
-          identifier: identifier.trim(),
-          password,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        setLoginError(data.error || "Credenciales incorrectas.");
-        return;
-      }
-
-      setPassword("");
-      await fetchSessionStatus();
-    } catch {
-      setLoginError("Error de red al iniciar sesión.");
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleChangeTempPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setChangePasswordError("");
-
-    if (newPassword.length < 8) {
-      setChangePasswordError(
-        "La nueva contraseña debe tener al menos 8 caracteres."
-      );
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setChangePasswordError("Las contraseñas no coinciden.");
-      return;
-    }
-
-    setChangingPassword(true);
-    try {
-      const res = await fetch("/api/scanner/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "change_password",
-          newPassword,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setChangePasswordError(
-          data.error || "No se pudo actualizar la contraseña."
-        );
-        return;
-      }
-      setMustChangePassword(false);
-      setNewPassword("");
-      setConfirmNewPassword("");
-      await fetchSessionStatus();
-    } catch {
-      setChangePasswordError("Error de conexión al guardar tu contraseña.");
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    stopCamera();
-    try {
-      await fetch("/api/scanner/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "logout" }),
-      });
-    } catch {}
-    setAuthenticated(false);
-    setEmployee(null);
-    setFicha(null);
-    setVisitSuccess(null);
-    setVisitDuplicate(null);
   };
 
   const resetCurrentScan = () => {
@@ -569,7 +482,7 @@ export default function ScannerPage() {
     setManualInput("");
   };
 
-  if (checkingSession) {
+  if (loadingInit) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6">
         <Loader2 className="w-8 h-8 text-[#EAB308] animate-spin mb-3" />
@@ -580,256 +493,9 @@ export default function ScannerPage() {
     );
   }
 
-  /* ==========================================================================
-     3. LOGIN INDEPENDIENTE (/scanner)
-     ========================================================================== */
-  if (!authenticated || !employee) {
-    return (
-      <div className="min-h-screen bg-[#040404] text-white flex flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-3xl p-7 sm:p-9 shadow-[0_25px_90px_rgba(0,0,0,0.95)]">
-          {/* Logo Oficial Club Bacachá */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-20 h-20 rounded-full bg-black border border-[#EAB308]/35 flex items-center justify-center p-2.5 mb-4 shadow-[0_0_40px_rgba(234,179,8,0.15)]">
-              <img
-                src="/logo.png"
-                alt="Club Bacachá"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#EAB308] font-bold">
-              CLUB BACACHÁ
-            </span>
-            <h1 className="text-2xl font-serif tracking-wide text-white mt-1">
-              Control de Visitas &amp; Scanner QR
-            </h1>
-            <p className="text-xs text-white/45 mt-1">
-              Acceso exclusivo para personal autorizado del club
-            </p>
-          </div>
-
-          {loginError && (
-            <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-300">
-              <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <span>{loginError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-widest text-white/55 mb-1.5">
-                Teléfono o Usuario
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-white/35 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Ej. 7441234567 o tu usuario"
-                  className="w-full bg-black border border-white/15 focus:border-[#EAB308] rounded-xl pl-10 pr-4 py-3.5 text-sm text-white outline-none transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-widest text-white/55 mb-1.5">
-                Contraseña
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-white/35 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-black border border-white/15 focus:border-[#EAB308] rounded-xl pl-10 pr-10 py-3.5 text-sm text-white outline-none transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="w-full py-4 px-6 rounded-xl bg-[#EAB308] hover:bg-[#CA8A04] disabled:opacity-50 text-black font-mono text-xs font-bold uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(234,179,8,0.25)] mt-2"
-            >
-              {loginLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Verificando...
-                </>
-              ) : (
-                "INICIAR SESIÓN"
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-white/10 text-center">
-            <button
-              type="button"
-              onClick={() => setShowRecoveryModal(true)}
-              className="text-xs font-mono text-white/50 hover:text-[#EAB308] transition-colors underline underline-offset-4"
-            >
-              ¿Olvidaste tu contraseña? Recuperar acceso
-            </button>
-          </div>
-        </div>
-
-        {/* Modal de Recuperación de Acceso */}
-        {showRecoveryModal && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#0E0E0E] border border-white/15 rounded-2xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#EAB308]">
-                  <KeyRound className="w-5 h-5" />
-                  <h3 className="text-sm font-mono uppercase tracking-widest font-bold">
-                    Recuperación de Acceso
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowRecoveryModal(false)}
-                  className="text-white/40 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-xs text-white/70 leading-relaxed">
-                Por seguridad operativa del club, el restablecimiento de acceso
-                se realiza mediante un{" "}
-                <strong className="text-white">
-                  enlace firmado de un solo uso por WhatsApp
-                </strong>{" "}
-                o una{" "}
-                <strong className="text-white">contraseña temporal</strong>{" "}
-                autorizada.
-              </p>
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-white/60 space-y-1.5">
-                <p className="text-white font-semibold">¿Qué debo hacer?</p>
-                <p>
-                  Solicita a tu <strong>Gerente</strong> o{" "}
-                  <strong>Administrador</strong> que presione{" "}
-                  <span className="text-[#EAB308] font-mono">
-                    &quot;Restablecer acceso&quot;
-                  </span>{" "}
-                  o{" "}
-                  <span className="text-[#EAB308] font-mono">
-                    &quot;Enviar invitación&quot;
-                  </span>{" "}
-                  en tu perfil dentro de{" "}
-                  <span className="font-mono text-white">
-                    /admin/empleados
-                  </span>
-                  . Recibirás el enlace al instante en tu WhatsApp.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowRecoveryModal(false)}
-                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-mono uppercase tracking-widest text-white font-bold"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /* ==========================================================================
-     CAMBIO OBLIGATORIO DE CONTRASEÑA TEMPORAL AL PRIMER INICIO
-     ========================================================================== */
-  if (mustChangePassword) {
-    return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md bg-[#0B0B0B] border border-[#EAB308]/30 rounded-3xl p-7 space-y-5 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-[#EAB308]/15 border border-[#EAB308]/30 flex items-center justify-center text-[#EAB308]">
-              <KeyRound className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#EAB308] font-bold">
-                SEGURIDAD OBLIGATORIA
-              </span>
-              <h2 className="text-lg font-serif text-white">
-                Actualiza tu Contraseña Temporal
-              </h2>
-            </div>
-          </div>
-
-          <p className="text-xs text-white/65 leading-relaxed">
-            Hola <strong className="text-white">{employee.name}</strong>,
-            ingresaste con una contraseña temporal asignada por administración.
-            Define ahora tu contraseña personal definitiva para usar el scanner.
-          </p>
-
-          {changePasswordError && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300">
-              {changePasswordError}
-            </div>
-          )}
-
-          <form onSubmit={handleChangeTempPassword} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1">
-                Nueva Contraseña Personal (mín. 8 caracteres)
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-black border border-white/15 focus:border-[#EAB308] rounded-xl px-4 py-3 text-sm text-white outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1">
-                Confirmar Nueva Contraseña
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full bg-black border border-white/15 focus:border-[#EAB308] rounded-xl px-4 py-3 text-sm text-white outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={changingPassword}
-              className="w-full py-3.5 rounded-xl bg-[#EAB308] hover:bg-[#CA8A04] text-black font-mono text-xs font-bold uppercase tracking-widest"
-            >
-              {changingPassword
-                ? "Guardando..."
-                : "Guardar Contraseña y Continuar"}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  /* ==========================================================================
-     4. INTERFAZ PRINCIPAL DE SCANNER (/scanner)
-     ========================================================================== */
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-16">
-      {/* Barra Superior del Empleado */}
+      {/* Barra Superior Directa (Sin Contraseña) */}
       <header className="sticky top-0 z-30 bg-[#080808]/95 backdrop-blur-md border-b border-white/10 px-4 py-3.5">
         <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -843,35 +509,58 @@ export default function ScannerPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold text-white truncate">
-                  {employee.name}
+                  SCANNER CLUB BACACHÁ
                 </p>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest bg-[#EAB308]/15 text-[#EAB308] border border-[#EAB308]/30 shrink-0">
-                  {employee.role}
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                  ACTIVO
                 </span>
               </div>
               <p className="text-[11px] text-white/45 font-mono truncate">
-                Jornada activa: {shiftDate || "Hoy"}
+                Jornada: {shiftDate || "Hoy"} · Operador: {operatorName}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-red-500/15 border border-white/10 hover:border-red-500/30 text-[10px] font-mono uppercase tracking-widest text-white/70 hover:text-red-300 flex items-center gap-1.5 transition-all shrink-0"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>CERRAR SESIÓN</span>
-          </button>
+          {employeesList.length > 0 && (
+            <select
+              value={selectedEmployeeId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedEmployeeId(val);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("bacacha_scanner_emp_id", val);
+                }
+                if (val === "staff_general") {
+                  setOperatorName("Staff Club Bacachá");
+                  setOperatorRole("HOSTESS");
+                } else {
+                  const found = employeesList.find((emp) => emp.id === val);
+                  if (found) {
+                    setOperatorName(found.name);
+                    setOperatorRole(found.role);
+                  }
+                }
+              }}
+              className="bg-black border border-white/15 rounded-xl px-2.5 py-1.5 text-[11px] font-mono text-[#EAB308] outline-none max-w-[160px]"
+            >
+              <option value="staff_general">Staff General</option>
+              {employeesList.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.role})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-4 pt-5 space-y-5">
-        {/* Contador de visitas registradas durante su turno */}
+        {/* Contador de visitas registradas durante el turno */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#0C0C0C] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-mono uppercase tracking-widest text-white/45 block">
-                Visitas en tu Turno
+                Visitas en la Jornada
               </span>
               <span className="text-2xl font-serif font-bold text-[#EAB308] mt-0.5 block">
                 {shiftVisitsCount}
@@ -888,7 +577,7 @@ export default function ScannerPage() {
                 Total Acumulado
               </span>
               <span className="text-2xl font-serif font-bold text-white mt-0.5 block">
-                {employee.visits_registered_count || shiftVisitsCount}
+                {totalVisitsCount}
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60">
@@ -924,8 +613,8 @@ export default function ScannerPage() {
                   Escanea la credencial digital del socio
                 </p>
                 <p className="text-xs text-white/45">
-                  Compatible con iPhone (Safari) y Android (Chrome). El permiso
-                  de cámara se solicita únicamente al activar el lector.
+                  Presiona el botón amarillo para abrir la cámara, ver los
+                  beneficios del miembro y sumarle su visita.
                 </p>
               </div>
               <button
@@ -947,7 +636,6 @@ export default function ScannerPage() {
                   muted
                 />
                 <canvas ref={canvasRef} className="hidden" />
-                {/* Guía visual de encuadre QR */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-8">
                   <div className="w-52 h-52 border-2 border-[#EAB308]/80 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] relative">
                     <div className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-4 border-l-4 border-[#EAB308] rounded-tl-xl" />
@@ -990,7 +678,7 @@ export default function ScannerPage() {
                 type="text"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                placeholder="O ingresa #000049 / token QR..."
+                placeholder="O escribe el número de socio (ej. #000049)..."
                 className="w-full bg-black border border-white/15 focus:border-[#EAB308] rounded-xl pl-10 pr-3 py-2.5 text-xs text-white outline-none font-mono"
               />
             </div>
@@ -1041,9 +729,7 @@ export default function ScannerPage() {
           </div>
         )}
 
-        {/* ====================================================================
-           5. PANTALLA DE ÉXITO: ✅ VISITA REGISTRADA
-           ==================================================================== */}
+        {/* 5. PANTALLA DE ÉXITO: ✅ VISITA REGISTRADA */}
         {visitSuccess && (
           <section className="bg-emerald-950/30 border-2 border-emerald-500/50 rounded-3xl p-6 space-y-4 shadow-[0_0_50px_rgba(16,185,129,0.18)]">
             <div className="flex items-center justify-between">
@@ -1102,9 +788,7 @@ export default function ScannerPage() {
           </section>
         )}
 
-        {/* ====================================================================
-           6. PREVENCIÓN DE DUPLICADOS: ⚠️ VISITA YA REGISTRADA
-           ==================================================================== */}
+        {/* 6. PREVENCIÓN DE DUPLICADOS: ⚠️ VISITA YA REGISTRADA */}
         {visitDuplicate && !visitSuccess && (
           <section className="bg-amber-950/30 border-2 border-amber-500/50 rounded-3xl p-6 space-y-3 shadow-[0_0_40px_rgba(245,158,11,0.14)]">
             <div className="flex items-center justify-between">
@@ -1151,12 +835,9 @@ export default function ScannerPage() {
           </section>
         )}
 
-        {/* ====================================================================
-           12. CONSULTA DE BENEFICIOS Y FICHA DIGITAL AL ESCANEAR QR
-           ==================================================================== */}
+        {/* 12. CONSULTA DE BENEFICIOS Y FICHA DIGITAL AL ESCANEAR QR */}
         {ficha && (
           <section className="bg-[#0B0B0B] border border-[#EAB308]/35 rounded-3xl p-6 space-y-6 shadow-[0_20px_70px_rgba(0,0,0,0.85)]">
-            {/* Cabecera del Socio */}
             <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1178,7 +859,6 @@ export default function ScannerPage() {
                 </p>
               </div>
 
-              {/* Estado ACTIVO / INACTIVO */}
               <span
                 className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold uppercase tracking-widest border ${
                   ficha.member.is_active
@@ -1190,7 +870,6 @@ export default function ScannerPage() {
               </span>
             </div>
 
-            {/* Indicadores clave de fidelización, visitas y puntos */}
             <div
               className={`grid ${
                 ficha.stats.handles_points ? "grid-cols-3" : "grid-cols-2"
@@ -1262,7 +941,7 @@ export default function ScannerPage() {
               </div>
             )}
 
-            {/* Beneficios disponibles para este socio (solo lectura para empleado) */}
+            {/* Beneficios disponibles para este socio */}
             <div className="space-y-3 pt-2 border-t border-white/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1322,7 +1001,6 @@ export default function ScannerPage() {
               </div>
             </div>
 
-            {/* Beneficios que ya utilizó (cuando exista esa información) */}
             {ficha.used_benefits.length > 0 && (
               <div className="space-y-2.5 pt-2 border-t border-white/10">
                 <div className="flex items-center gap-2">
@@ -1354,18 +1032,18 @@ export default function ScannerPage() {
           </section>
         )}
 
-        {/* Historial de las últimas operaciones del empleado */}
+        {/* Historial de las últimas operaciones */}
         <section className="bg-[#0B0B0B] border border-white/10 rounded-3xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-[#EAB308]" />
               <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white font-bold">
-                Tus Últimas Operaciones
+                Últimas Visitas Registradas
               </h3>
             </div>
             <button
               type="button"
-              onClick={fetchSessionStatus}
+              onClick={fetchScannerData}
               className="text-white/40 hover:text-white p-1"
               title="Actualizar historial"
             >
@@ -1375,7 +1053,7 @@ export default function ScannerPage() {
 
           {recentOperations.length === 0 ? (
             <p className="text-xs text-white/40 text-center py-6 font-mono">
-              Aún no has registrado visitas en este turno.
+              Aún no se han registrado visitas en esta jornada.
             </p>
           ) : (
             <div className="divide-y divide-white/5">
@@ -1395,6 +1073,7 @@ export default function ScannerPage() {
                     </div>
                     <p className="text-[10px] text-white/40 font-mono mt-0.5">
                       {formatDateTimeMX(op.visitedAt)}
+                      {op.employeeName ? ` · Por: ${op.employeeName}` : ""}
                     </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-mono text-[10px] shrink-0">
@@ -1409,4 +1088,3 @@ export default function ScannerPage() {
     </div>
   );
 }
-

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { LoyaltyReward, LoyaltyTransaction, LoyaltyRedemption } from "@/lib/members/types";
+import {
+  OFFICIAL_PROMO_VENUE,
+  ensureOfficialPromoClauses,
+} from "@/lib/benefits/clauses";
 
 // Fallback initial rewards if database table is empty or initializing
 const DEFAULT_REWARDS: LoyaltyReward[] = [
@@ -12,7 +16,7 @@ const DEFAULT_REWARDS: LoyaltyReward[] = [
     category: "MERCHANDISE",
     stock: 50,
     active: true,
-    terms: "Sujeto a disponibilidad de tallas (S, M, L, XL). Entrega presencial en barra o recepción del Club.",
+    terms: ensureOfficialPromoClauses("Sujeto a disponibilidad de tallas (S, M, L, XL). Entrega presencial en barra o recepción del Club."),
   },
   {
     id: "rew-gorra",
@@ -22,7 +26,7 @@ const DEFAULT_REWARDS: LoyaltyReward[] = [
     category: "MERCHANDISE",
     stock: 40,
     active: true,
-    terms: "Entrega presencial mostrando tu código de canje en puerta o barra.",
+    terms: ensureOfficialPromoClauses("Entrega presencial mostrando tu código de canje en puerta o barra."),
   },
   {
     id: "rew-botella",
@@ -32,7 +36,7 @@ const DEFAULT_REWARDS: LoyaltyReward[] = [
     category: "BOTTLE",
     stock: 20,
     active: true,
-    terms: "Válido en noches de apertura con reservación previa o cupo disponible.",
+    terms: ensureOfficialPromoClauses("Válido en noches de apertura con reservación previa o cupo disponible."),
   },
   {
     id: "rew-mojitos",
@@ -42,7 +46,7 @@ const DEFAULT_REWARDS: LoyaltyReward[] = [
     category: "COURTESY",
     stock: 100,
     active: true,
-    terms: "Válido directamente en barra presentando tu código QR de canje.",
+    terms: ensureOfficialPromoClauses("Válido directamente en barra presentando tu código QR de canje."),
   },
   {
     id: "rew-vip",
@@ -52,7 +56,7 @@ const DEFAULT_REWARDS: LoyaltyReward[] = [
     category: "EXPERIENCE",
     stock: 15,
     active: true,
-    terms: "Requiere confirmación previa 24 horas antes del evento.",
+    terms: ensureOfficialPromoClauses("Requiere confirmación previa 24 horas antes del evento."),
   },
 ];
 
@@ -180,12 +184,42 @@ export async function GET(req: NextRequest) {
           imageUrl: r.image_url,
           stock: r.stock,
           active: r.active,
-          terms: r.terms,
+          terms: ensureOfficialPromoClauses(r.terms),
           createdAt: r.created_at,
         }));
       }
     } catch {
       // Use DEFAULT_REWARDS
+    }
+
+    // 3b. Fetch active Club promotions from public.benefits
+    let promotions: Array<{
+      id: string;
+      title: string;
+      phrase: string;
+      venue: string;
+      terms: string;
+      imageUrl?: string;
+    }> = [];
+    try {
+      const { data: dbBenefits } = await supabase
+        .from("benefits")
+        .select("*")
+        .eq("active", true)
+        .order("created_at", { ascending: true });
+
+      if (dbBenefits && dbBenefits.length > 0) {
+        promotions = dbBenefits.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          phrase: b.phrase,
+          venue: b.venue || OFFICIAL_PROMO_VENUE,
+          terms: ensureOfficialPromoClauses(b.terms || b.phrase),
+          imageUrl: b.image_url || undefined,
+        }));
+      }
+    } catch {
+      // continue empty
     }
 
     // 4. Fetch redemptions
@@ -220,6 +254,7 @@ export async function GET(req: NextRequest) {
       pointsBalance: currentBalance,
       transactions,
       rewards,
+      promotions,
       redemptions,
     });
   } catch (err: any) {

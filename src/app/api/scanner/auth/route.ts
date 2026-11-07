@@ -1,27 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hashPassword } from "@/lib/admin/crypto";
-import { logAdminAudit } from "@/lib/admin/session";
 import {
   SCANNER_COOKIE_NAME,
   computeOperationalShiftDate,
   getScannerSession,
   getVisitLoyaltyRules,
-  loginScannerStaff,
+  listStaffEmployees,
   logoutScannerSession,
-  saveStaffEmployee,
 } from "@/lib/scanner/staff-server";
 import { formatMemberBadge, formatMemberFullName } from "@/lib/members/welcome";
 
 export async function GET(req: NextRequest) {
-  const session = await getScannerSession(req);
-  if (!session) {
-    return NextResponse.json(
-      { authenticated: false, error: "Sesión no iniciada" },
-      { status: 401 }
-    );
-  }
-
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -30,14 +19,48 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const rules = await getVisitLoyaltyRules(supabase);
+  const [session, rules, allEmployees] = await Promise.all([
+    getScannerSession(req),
+    getVisitLoyaltyRules(supabase),
+    listStaffEmployees(supabase),
+  ]);
+
+  const activeEmployees = allEmployees
+    .filter((e) => e.status !== "INACTIVO")
+    .map(({ password_hash: _ph, ...safe }) => safe);
+
+  const selectedEmployeeId =
+    req.nextUrl.searchParams.get("employeeId") ||
+    session?.employee?.id ||
+    activeEmployees[0]?.id ||
+    "staff_general";
+
+  const selectedEmployee = activeEmployees.find(
+    (e) => e.id === selectedEmployeeId
+  ) ||
+    session?.employee || {
+      id: "staff_general",
+      name: "Staff Club Bacachá",
+      phone: "",
+      username: "staff",
+      role: "HOSTESS" as const,
+      status: "ACTIVO" as const,
+      must_change_password: false,
+      visits_registered_count: 0,
+      last_login_at: null,
+      last_active_at: null,
+      created_by: "Sistema",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
   const shiftDate = computeOperationalShiftDate(
     new Date(),
     rules.shift_cutoff_hour,
     rules.timezone
   );
 
-  // Consultar operaciones recientes registradas por este empleado
+  // Consultar operaciones recientes registradas en el scanner
   const { data: actRows } = await supabase
     .from("member_activity")
     .select(
@@ -48,6 +71,7 @@ export async function GET(req: NextRequest) {
     .limit(150);
 
   let shiftVisitsCount = 0;
+  let totalVisitsCount = 0;
   const recentOperations: Array<{
     id: string;
     memberId: string;
@@ -57,15 +81,12 @@ export async function GET(req: NextRequest) {
     visitNumber: number;
     shiftDate: string;
     visitedAt: string;
+    employeeName: string;
   }> = [];
 
   for (const row of actRows || []) {
     const meta = (row.metadata || {}) as Record<string, any>;
-    const matchesEmployee =
-      meta.employee_id === session.employee.id ||
-      meta.employee_name === session.employee.name;
-
-    if (!matchesEmployee) continue;
+    totalVisitsCount += 1;
 
     const rowShift =
       meta.shift_date ||
@@ -95,19 +116,20 @@ export async function GET(req: NextRequest) {
         visitNumber: Number(meta.visit_number || 1),
         shiftDate: rowShift,
         visitedAt: meta.visited_at || row.created_at,
+        employeeName: meta.employee_name || "Staff Club Bacachá",
       });
     }
   }
 
-  const { password_hash: _ph, ...safeEmployee } = session.employee;
-
   return NextResponse.json({
     authenticated: true,
-    employee: safeEmployee,
-    mustChangePassword: Boolean(session.employee.must_change_password),
+    employee: selectedEmployee,
+    employees: activeEmployees,
+    mustChangePassword: false,
     shiftDate,
     shiftCutoffHour: rules.shift_cutoff_hour,
     shiftVisitsCount,
+    totalVisitsCount,
     recentOperations,
   });
 }
@@ -115,12 +137,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const action = String(body.action || "login");
+    const action = String(body.action || "");
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
       "unknown";
-    const userAgent = req.headers.get("user-agent") || "unknown";
 
     if (action === "logout") {
       const rawToken = req.cookies.get(SCANNER_COOKIE_NAME)?.value;
@@ -137,99 +158,11 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    if (action === "change_password") {
-      const session = await getScannerSession(req);
-      if (!session) {
-        return NextResponse.json(
-          { error: "Sesión no válida o expirada." },
-          { status: 401 }
-        );
-      }
-
-      const newPassword = String(body.newPassword || "");
-      if (newPassword.length < 8) {
-        return NextResponse.json(
-          { error: "La nueva contraseña debe tener al menos 8 caracteres." },
-          { status: 400 }
-        );
-      }
-
-      const supabase = createAdminClient();
-      if (!supabase) {
-        return NextResponse.json(
-          { error: "Base de datos no disponible." },
-          { status: 500 }
-        );
-      }
-
-      const passwordHash = await hashPassword(newPassword);
-      const nowIso = new Date().toISOString();
-
-      const updated = await saveStaffEmployee(supabase, {
-        ...session.employee,
-        password_hash: passwordHash,
-        must_change_password: false,
-        temp_password_expires_at: null,
-        updated_at: nowIso,
-      });
-
-      await logAdminAudit(
-        "SCANNER_PASSWORD_CHANGED",
-        { employeeId: updated.id, employeeName: updated.name },
-        {
-          actorName: updated.name,
-          targetType: "staff_employee",
-          targetId: updated.id,
-          ip,
-        }
-      );
-
-      const { password_hash: _ph, ...safeEmployee } = updated;
-      return NextResponse.json({
-        ok: true,
-        employee: safeEmployee,
-        mustChangePassword: false,
-      });
-    }
-
-    // action === "login"
-    const identifier = String(body.identifier || "").trim();
-    const password = String(body.password || "");
-
-    if (!identifier || !password) {
-      return NextResponse.json(
-        { error: "Ingresa tu teléfono o usuario y tu contraseña." },
-        { status: 400 }
-      );
-    }
-
-    const result = await loginScannerStaff(identifier, password, ip, userAgent);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 401 });
-    }
-
-    const { password_hash: _ph, ...safeEmployee } = result.employee;
-
-    const response = NextResponse.json({
-      ok: true,
-      employee: safeEmployee,
-      mustChangePassword: result.mustChangePassword,
-    });
-
-    response.cookies.set(SCANNER_COOKIE_NAME, result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 16 * 3600,
-    });
-
-    return response;
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err?.message || "Error interno en autenticación de scanner" },
+      { error: err?.message || "Error interno en scanner" },
       { status: 500 }
     );
   }
 }
-

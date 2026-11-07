@@ -63,7 +63,11 @@ async function MemberVerifyCard({ params }: Props) {
         name: adminSession.user.name,
         role: "GERENTE",
       }
-    : null;
+    : {
+        id: "staff_general",
+        name: "Staff Club Bacachá",
+        role: "STAFF",
+      };
 
   return (
     <MemberQrFichaClient
