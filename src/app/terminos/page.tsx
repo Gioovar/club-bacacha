@@ -71,6 +71,34 @@ export default function TerminosPage() {
               privados está sujeta a los lineamientos de aforo, código de
               vestimenta y políticas particulares del venue.
             </p>
+
+            <h2 className="display text-xl text-bone uppercase pt-4">
+              5. Cláusulas de Promociones: Club Bacachá | Cantina Dolores
+            </h2>
+            <div className="p-5 bg-coal border border-bone/20 rounded-xl space-y-2 text-sm font-mono text-bone/90">
+              <p className="text-amber-400 font-bold uppercase tracking-wider">
+                Club Bacachá | Cantina Dolores
+              </p>
+              <ul className="space-y-1.5 pl-1">
+                <li>• Promociones exclusivas para miembros del Club Bacachá.</li>
+                <li>• Límite de una promoción por miembro.</li>
+                <li>• Válidas hasta las 11:59 pm</li>
+              </ul>
+              <p className="pt-2 border-t border-bone/10 text-xs text-fog">
+                Únete al Club Bacachá en{" "}
+                <a
+                  href="https://www.bacacha.com"
+                  className="text-amber-400 underline"
+                >
+                  &ldquo;www.bacacha.com&rdquo;
+                </a>{" "}
+                (
+                <a href="https://www.bacacha.com" className="underline">
+                  https://www.bacacha.com
+                </a>
+                ).
+              </p>
+            </div>
           </div>
         </div>
       </main>

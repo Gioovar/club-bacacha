@@ -32,6 +32,12 @@ import {
   Phone,
   MessageCircle,
 } from "lucide-react";
+import {
+  OFFICIAL_PROMO_BULLETS,
+  OFFICIAL_PROMO_CLAUSES_TEXT,
+  OFFICIAL_PROMO_VENUE,
+  ensureOfficialPromoClauses,
+} from "@/lib/benefits/clauses";
 
 interface BenefitItem {
   id: string;
@@ -111,14 +117,15 @@ export default function AdminBenefitsPage() {
     points_cost: 0,
     points_award: 0,
     image_url: "/images/gran_inauguracion.png",
-    venue: "Costera Miguel Alemán · Acapulco",
-    terms: "",
+    venue: OFFICIAL_PROMO_VENUE,
+    terms: OFFICIAL_PROMO_CLAUSES_TEXT,
     starts_at: "",
     ends_at: "",
     stock: "",
     max_redemptions_per_member: "1",
     status: "draft" as "draft" | "published",
   });
+  const [applyingClauses, setApplyingClauses] = useState(false);
   const [submittingForm, setSubmittingForm] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -257,8 +264,8 @@ export default function AdminBenefitsPage() {
       points_cost: 0,
       points_award: 0,
       image_url: "/images/gran_inauguracion.png",
-      venue: "Costera Miguel Alemán · Acapulco",
-      terms: "Válido para miembros de Club Bacachá mostrando membresía digital.",
+      venue: OFFICIAL_PROMO_VENUE,
+      terms: OFFICIAL_PROMO_CLAUSES_TEXT,
       starts_at: "",
       ends_at: "",
       stock: "",
@@ -281,8 +288,8 @@ export default function AdminBenefitsPage() {
       points_cost: benefit.points_cost || 0,
       points_award: benefit.points_award || 0,
       image_url: benefit.image_url || "/images/gran_inauguracion.png",
-      venue: benefit.venue || "Costera Miguel Alemán · Acapulco",
-      terms: benefit.terms || "",
+      venue: benefit.venue || OFFICIAL_PROMO_VENUE,
+      terms: ensureOfficialPromoClauses(benefit.terms),
       starts_at: benefit.starts_at ? benefit.starts_at.slice(0, 10) : "",
       ends_at: benefit.ends_at ? benefit.ends_at.slice(0, 10) : "",
       stock: benefit.stock ? String(benefit.stock) : "",
@@ -290,6 +297,24 @@ export default function AdminBenefitsPage() {
       status: benefit.status === "published" ? "published" : "draft",
     });
     setFormModalOpen(true);
+  };
+
+  const handleApplyOfficialClausesToAll = async () => {
+    setApplyingClauses(true);
+    try {
+      const res = await fetch("/api/admin/benefits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "apply_official_clauses" }),
+      });
+      if (res.ok) {
+        await fetchBenefits();
+      }
+    } catch (err) {
+      console.error("Error applying official clauses:", err);
+    } finally {
+      setApplyingClauses(false);
+    }
   };
 
   // Submit Benefit Form
@@ -570,6 +595,47 @@ export default function AdminBenefitsPage() {
         </div>
       </div>
 
+      {/* Cláusulas Oficiales Vigentes: Club Bacachá | Cantina Dolores */}
+      <div className="p-5 rounded-2xl bg-neutral-950 border border-amber-400/30 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-widest">
+            <ShieldCheck className="w-4 h-4" />
+            <span>{OFFICIAL_PROMO_VENUE} — Cláusulas Oficiales de Promociones</span>
+          </div>
+          <ul className="text-xs font-mono text-neutral-200 space-y-0.5 pl-1">
+            {OFFICIAL_PROMO_BULLETS.map((bullet) => (
+              <li key={bullet}>• {bullet}</li>
+            ))}
+          </ul>
+          <p className="text-[0.7rem] font-mono text-neutral-400 pt-1">
+            Únete al Club Bacachá en{" "}
+            <a
+              href="https://www.bacacha.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-amber-400 underline"
+            >
+              &ldquo;www.bacacha.com&rdquo;
+            </a>{" "}
+            (https://www.bacacha.com).
+          </p>
+        </div>
+
+        <button
+          type="button"
+          disabled={applyingClauses}
+          onClick={handleApplyOfficialClausesToAll}
+          className="px-4 py-2.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/40 text-amber-300 font-mono text-xs font-semibold flex items-center gap-2 self-start lg:self-center shrink-0 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <CheckCircle2 className="w-4 h-4 text-amber-400" />
+          <span>
+            {applyingClauses
+              ? "Sincronizando en Supabase..."
+              : "Sincronizar cláusulas en todas las promociones"}
+          </span>
+        </button>
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-850 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Search */}
@@ -772,6 +838,19 @@ export default function AdminBenefitsPage() {
                         <span className="text-neutral-300 font-semibold">{b.stock} unidades</span>
                       </div>
                     )}
+
+                    {/* Cláusulas Oficiales Resumen */}
+                    <div className="pt-2 border-t border-neutral-900 text-[0.63rem] text-neutral-400 space-y-0.5 leading-relaxed">
+                      <div className="text-amber-400 font-semibold">
+                        {b.venue || OFFICIAL_PROMO_VENUE}
+                      </div>
+                      <div>• Promociones exclusivas para miembros del Club Bacachá.</div>
+                      <div>• Límite de una promoción por miembro.</div>
+                      <div>• Válidas hasta las 11:59 pm</div>
+                      <div className="text-neutral-500">
+                        Únete al Club Bacachá en &ldquo;www.bacacha.com&rdquo; (https://www.bacacha.com).
+                      </div>
+                    </div>
                   </div>
                 </div>
 

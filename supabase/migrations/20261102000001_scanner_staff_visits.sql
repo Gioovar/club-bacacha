@@ -141,3 +141,4 @@ VALUES (
   'Configuración de jornada operativa nocturna y reglas de puntos por visita en el scanner'
 )
 ON CONFLICT (key) DO NOTHING;
+

@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAudit } from "@/lib/admin/session";
 import { formatMemberBadge, formatMemberFullName } from "./welcome";
+import {
+  OFFICIAL_PROMO_VENUE,
+  ensureOfficialPromoClauses,
+} from "@/lib/benefits/clauses";
 
 export interface QrBenefitItem {
   id: string;
@@ -378,13 +382,14 @@ export async function getMemberQrFichaByToken(
       const venue =
         b.venue ||
         parsedReqs.venue ||
-        "Club Bacachá · Acapulco";
+        OFFICIAL_PROMO_VENUE;
 
-      const terms =
+      const rawTerms =
         b.terms ||
         parsedReqs.terms ||
         parsedReqs.text ||
         "";
+      const terms = ensureOfficialPromoClauses(rawTerms);
 
       const canAffordPoints =
         pointsCost <= 0 || (pointsBalance !== null && pointsBalance >= pointsCost);
@@ -644,3 +649,4 @@ export async function registerMemberQrVisitByToken(
     pointsAwarded: attendancePoints,
   };
 }
+

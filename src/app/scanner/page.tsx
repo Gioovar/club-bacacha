@@ -1299,14 +1299,27 @@ export default function ScannerPage() {
                         <p className="text-xs text-[#EAB308]/90">{b.phrase}</p>
                       )}
                       {b.terms && (
-                        <p className="text-[11px] text-white/50 leading-relaxed">
-                          Condiciones: {b.terms}
+                        <p className="text-[11px] text-white/60 leading-relaxed whitespace-pre-line border-t border-white/10 pt-2 mt-1">
+                          {b.terms}
                         </p>
                       )}
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Cláusulas Oficiales de Promociones del Club */}
+              <div className="p-3.5 rounded-2xl bg-black/50 border border-[#EAB308]/20 text-[11px] font-mono text-white/65 space-y-1">
+                <p className="text-[#EAB308] font-bold">
+                  Club Bacachá | Cantina Dolores
+                </p>
+                <p>• Promociones exclusivas para miembros del Club Bacachá.</p>
+                <p>• Límite de una promoción por miembro.</p>
+                <p>• Válidas hasta las 11:59 pm</p>
+                <p className="text-white/50 pt-1">
+                  Únete al Club Bacachá en &ldquo;www.bacacha.com&rdquo; (https://www.bacacha.com).
+                </p>
+              </div>
             </div>
 
             {/* Beneficios que ya utilizó (cuando exista esa información) */}
@@ -1396,3 +1409,4 @@ export default function ScannerPage() {
     </div>
   );
 }
+

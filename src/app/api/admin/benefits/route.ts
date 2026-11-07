@@ -2,6 +2,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminSession, logAdminAudit } from "@/lib/admin/session";
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag, revalidatePath } from "next/cache";
+import {
+  OFFICIAL_PROMO_CLAUSES_TEXT,
+  OFFICIAL_PROMO_VENUE,
+  ensureOfficialPromoClauses,
+} from "@/lib/benefits/clauses";
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession(req);
@@ -97,13 +102,14 @@ export async function GET(req: NextRequest) {
     const venue =
       b.venue ||
       parsedReqs.venue ||
-      "Costera Miguel Alemán · Acapulco";
+      OFFICIAL_PROMO_VENUE;
 
-    const terms =
+    const rawTerms =
       b.terms ||
       parsedReqs.terms ||
       parsedReqs.text ||
       "";
+    const terms = ensureOfficialPromoClauses(rawTerms);
 
     const stock =
       b.stock !== undefined && b.stock !== null
@@ -190,6 +196,80 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
+  // Handle applying official clauses to all promotions in Supabase
+  if (body.action === "apply_official_clauses") {
+    const { data: allBenefits, error: listErr } = await admin
+      .from("benefits")
+      .select("*");
+
+    if (listErr) {
+      return NextResponse.json({ error: listErr.message }, { status: 500 });
+    }
+
+    let updatedCount = 0;
+    for (const b of allBenefits || []) {
+      let currentReqs: Record<string, any> = {};
+      if (b.requirements && typeof b.requirements === "string") {
+        try {
+          if (b.requirements.startsWith("{")) {
+            currentReqs = JSON.parse(b.requirements);
+          } else {
+            currentReqs = { terms: b.requirements };
+          }
+        } catch {
+          currentReqs = { terms: b.requirements };
+        }
+      }
+
+      const newTerms = ensureOfficialPromoClauses(
+        b.terms || currentReqs.terms || currentReqs.text || ""
+      );
+      const newVenue = b.venue || currentReqs.venue || OFFICIAL_PROMO_VENUE;
+      const packedReqs = JSON.stringify({
+        ...currentReqs,
+        venue: newVenue,
+        terms: newTerms,
+        max_per_member: 1,
+      });
+
+      const fullPatch: Record<string, any> = {
+        venue: newVenue,
+        terms: newTerms,
+        max_redemptions_per_member: 1,
+        requirements: packedReqs,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: uErr } = await admin
+        .from("benefits")
+        .update(fullPatch)
+        .eq("id", b.id);
+
+      if (uErr) {
+        await admin
+          .from("benefits")
+          .update({
+            requirements: packedReqs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", b.id);
+      }
+      updatedCount += 1;
+    }
+
+    try {
+      revalidateTag("benefits", { expire: 0 });
+      revalidateTag("site-content", { expire: 0 });
+      revalidatePath("/");
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      updatedCount,
+      clauses: OFFICIAL_PROMO_CLAUSES_TEXT,
+    });
+  }
+
   // Handle Duplication
   if (body.action === "duplicate" && body.sourceBenefitId) {
     const { data: source, error: srcErr } = await admin
@@ -259,8 +339,8 @@ export async function POST(req: NextRequest) {
     event_id = null,
     points_cost = 0,
     points_award = 0,
-    venue = "Costera Miguel Alemán · Acapulco",
-    terms = "",
+    venue = OFFICIAL_PROMO_VENUE,
+    terms = OFFICIAL_PROMO_CLAUSES_TEXT,
     starts_at = null,
     ends_at = null,
     max_redemptions_total = null,
@@ -270,6 +350,9 @@ export async function POST(req: NextRequest) {
     code = null,
     metadata = {},
   } = body;
+
+  const finalTerms = ensureOfficialPromoClauses(terms);
+  const finalVenue = (venue || "").trim() || OFFICIAL_PROMO_VENUE;
 
   if (!title || !phrase) {
     return NextResponse.json({ error: "Título y frase requeridos" }, { status: 422 });
@@ -290,8 +373,8 @@ export async function POST(req: NextRequest) {
     event_id,
     points_cost: Number(points_cost) || 0,
     points_award: Number(points_award) || 0,
-    venue,
-    terms,
+    venue: finalVenue,
+    terms: finalTerms,
     max_redemptions_total: max_redemptions_total ? Number(max_redemptions_total) : null,
     max_per_member: max_redemptions_per_member ? Number(max_redemptions_per_member) : 1,
     stock: stock ? Number(stock) : null,
@@ -310,8 +393,8 @@ export async function POST(req: NextRequest) {
     event_id: event_id || null,
     points_cost: Number(points_cost) || 0,
     points_award: Number(points_award) || 0,
-    venue,
-    terms,
+    venue: finalVenue,
+    terms: finalTerms,
     starts_at: starts_at || null,
     ends_at: ends_at || null,
     max_redemptions_total: max_redemptions_total ? Number(max_redemptions_total) : null,
@@ -436,7 +519,7 @@ export async function PATCH(req: NextRequest) {
       ...(updates.points_cost !== undefined ? { points_cost: Number(updates.points_cost) } : {}),
       ...(updates.points_award !== undefined ? { points_award: Number(updates.points_award) } : {}),
       ...(updates.venue ? { venue: updates.venue } : {}),
-      ...(updates.terms ? { terms: updates.terms } : {}),
+      ...(updates.terms !== undefined ? { terms: ensureOfficialPromoClauses(updates.terms) } : {}),
       ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
       ...(updates.max_redemptions_per_member !== undefined ? { max_per_member: updates.max_redemptions_per_member } : {}),
     });

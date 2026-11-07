@@ -432,3 +432,4 @@ export async function GET(req: NextRequest) {
     totalFiltered: filteredVisits.length,
   });
 }
+

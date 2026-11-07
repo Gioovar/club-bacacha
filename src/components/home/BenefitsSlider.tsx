@@ -5,6 +5,10 @@ import Image from "next/image";
 import type { Benefit } from "@/lib/content/types";
 import { RevealLines } from "@/components/motion/RevealLines";
 import { Reveal } from "@/components/motion/Reveal";
+import {
+  OFFICIAL_PROMO_BULLETS,
+  OFFICIAL_PROMO_VENUE,
+} from "@/lib/benefits/clauses";
 
 type Props = {
   eyebrow: string;
@@ -116,18 +120,63 @@ export function BenefitsSlider({ eyebrow, titleLines, items }: Props) {
 
                 {/* In-Card Title and Phrase */}
                 <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 flex flex-col justify-end">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 mb-1.5">
+                    {OFFICIAL_PROMO_VENUE}
+                  </span>
                   <h3 className="display text-2xl sm:text-3xl text-bone mb-2 tracking-tight uppercase">
                     {benefit.title}
                   </h3>
-                  <p className="text-sm text-fog font-light leading-relaxed">
+                  <p className="text-sm text-fog font-light leading-relaxed mb-3">
                     {benefit.phrase}
                   </p>
+                  <ul className="space-y-1 text-[11px] font-mono text-bone/80 border-t border-bone/15 pt-2.5">
+                    {OFFICIAL_PROMO_BULLETS.map((clause) => (
+                      <li key={clause} className="flex items-start gap-1.5">
+                        <span className="text-amber-400">•</span>
+                        <span>{clause}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Cláusulas Oficiales de Promociones: Club Bacachá | Cantina Dolores */}
+      <div className="container-x mt-8">
+        <div className="border border-bone/15 bg-graphite/40 p-6 sm:p-8 rounded-2xl max-w-3xl mx-auto">
+          <p className="font-mono text-xs tracking-[0.25em] uppercase text-amber-400 font-bold mb-3">
+            {OFFICIAL_PROMO_VENUE}
+          </p>
+          <ul className="space-y-1.5 text-xs sm:text-sm text-bone/90 font-mono mb-4">
+            {OFFICIAL_PROMO_BULLETS.map((clause) => (
+              <li key={clause} className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <span>{clause}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs sm:text-sm font-mono text-fog pt-3 border-t border-bone/10">
+            Únete al Club Bacachá en{" "}
+            <a
+              href="https://www.bacacha.com"
+              className="text-amber-400 underline underline-offset-4 hover:text-amber-300"
+            >
+              &ldquo;www.bacacha.com&rdquo;
+            </a>{" "}
+            (
+            <a
+              href="https://www.bacacha.com"
+              className="text-bone/80 hover:text-white underline underline-offset-4"
+            >
+              https://www.bacacha.com
+            </a>
+            ).
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
