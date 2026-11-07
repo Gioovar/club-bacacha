@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,7 +15,7 @@ import {
   UserCheck,
 } from "lucide-react";
 
-export default function ScannerActivationPage() {
+function ScannerActivationContent() {
   const params = useParams<{ token: string }>();
   const router = useRouter();
   const token = typeof params?.token === "string" ? params.token : "";
@@ -281,6 +281,25 @@ export default function ScannerActivationPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ScannerActivationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-[#EAB308]" />
+            <p className="text-xs font-mono text-white/50 uppercase tracking-widest">
+              Cargando invitación...
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <ScannerActivationContent />
+    </Suspense>
   );
 }
 
