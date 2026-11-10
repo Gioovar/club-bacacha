@@ -14,6 +14,7 @@ import {
   OFFICIAL_PROMO_BULLETS,
   OFFICIAL_PROMO_VENUE,
 } from "@/lib/benefits/clauses";
+import { Eye, EyeOff, Lock, KeyRound, ShieldCheck } from "lucide-react";
 
 export default function MiMembresiaPage() {
   const [member, setMember] = useState<PublicMember | null>(null);
@@ -57,12 +58,20 @@ export default function MiMembresiaPage() {
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
 
-  // Passwordless login state
+  // Member login state (password & direct)
+  const [loginMode, setLoginMode] = useState<"password" | "direct">("password");
   const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [otpToken, setOtpToken] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // In-profile password update state
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     const m = loadMember();
@@ -177,12 +186,21 @@ export default function MiMembresiaPage() {
     setAuthError(null);
     if (!emailInput) return;
 
+    if (loginMode === "password" && !passwordInput) {
+      setAuthError("Ingresa tu contraseña para continuar.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: emailInput, email: emailInput }),
+        body: JSON.stringify({
+          identifier: emailInput,
+          email: emailInput,
+          password: loginMode === "password" ? passwordInput : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -197,6 +215,34 @@ export default function MiMembresiaPage() {
       setAuthError("Error de conexión. Inténtalo de nuevo.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!member || !newPassword || newPassword.length < 6) return;
+    setSavingPassword(true);
+    setProfileMsg(null);
+    try {
+      const res = await fetch("/api/members/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrToken: member.qrToken,
+          newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProfileMsg({ text: "🔑 " + (data.message || "¡Contraseña guardada correctamente!") });
+        setNewPassword("");
+      } else {
+        setProfileMsg({ text: data.error || "No se pudo actualizar la contraseña.", error: true });
+      }
+    } catch {
+      setProfileMsg({ text: "Error de conexión al guardar la contraseña.", error: true });
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -862,6 +908,63 @@ export default function MiMembresiaPage() {
                 </div>
               </div>
 
+              {/* Password Management */}
+              <div className="p-6 sm:p-8 bg-coal border border-bone/10 rounded-xl space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-bone/10">
+                  <div>
+                    <span className="text-[0.62rem] font-mono tracking-widest uppercase text-amber-400 block mb-1">
+                      ACCESO & SEGURIDAD
+                    </span>
+                    <h3 className="display text-xl uppercase text-bone">
+                      CONTRASEÑA DE TU MEMBRESÍA
+                    </h3>
+                  </div>
+                  <span className="text-xs font-mono text-ash">
+                    Para entrar con correo y contraseña
+                  </span>
+                </div>
+
+                <p className="text-xs text-fog font-light leading-relaxed">
+                  Configura o cambia tu contraseña personal para que puedas iniciar sesión rápidamente usando tu correo electrónico o teléfono, sin necesidad de recordar tu número de socio.
+                </p>
+
+                <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-md">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase tracking-widest text-white/50 mb-1.5">
+                      Nueva Contraseña (mínimo 6 caracteres)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPass ? "text" : "password"}
+                        required
+                        minLength={6}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Escribe tu nueva contraseña"
+                        className="field-input pr-10 text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-ash hover:text-white"
+                        aria-label="Ver u ocultar contraseña"
+                      >
+                        {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingPassword || !newPassword || newPassword.length < 6}
+                    className="btn btn-primary !min-h-[2.75rem] !px-6 text-xs tracking-widest uppercase disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    {savingPassword ? "GUARDANDO..." : "GUARDAR CONTRASEÑA"}
+                  </button>
+                </form>
+              </div>
+
               {/* Referrals & Invites */}
               <div className="p-6 sm:p-8 bg-coal border border-bone/10 rounded-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -992,28 +1095,61 @@ export default function MiMembresiaPage() {
               </div>
             </div>
           ) : loaded ? (
-            /* Direct Member Access Without Password or Email OTP Friction */
+            /* Member Login: Correo y Contraseña / Acceso Rápido */
             <div className="text-center py-16 max-w-md mx-auto space-y-8">
               <div>
-                <span className="eyebrow text-ash block mb-2">ACCESO DIRECTO A MIEMBROS</span>
+                <span className="eyebrow text-ash block mb-2">PORTAL DE SOCIOS</span>
                 <h1 className="display text-3xl sm:text-5xl uppercase">
                   INGRESAR A MI MEMBRESÍA
                 </h1>
                 <p className="text-sm text-fog font-light mt-3 leading-relaxed">
-                  Ingresa tu correo electrónico, teléfono o número de socio (#000049) para abrir tu credencial QR de inmediato, sin contraseñas.
+                  Ingresa con tu correo registrado y tu contraseña personal. Si no tienes o no recuerdas tu contraseña, puedes entrar con acceso rápido.
                 </p>
               </div>
 
+              {/* Selector de modo de acceso */}
+              <div className="flex bg-coal border border-bone/15 rounded-xl p-1 text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode("password");
+                    setAuthError(null);
+                  }}
+                  className={`flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    loginMode === "password"
+                      ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-400/20"
+                      : "text-ash hover:text-bone"
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Correo y Contraseña</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMode("direct");
+                    setAuthError(null);
+                  }}
+                  className={`flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    loginMode === "direct"
+                      ? "bg-bone text-ink font-bold shadow-md"
+                      : "text-ash hover:text-bone"
+                  }`}
+                >
+                  <span>⚡ Acceso Rápido</span>
+                </button>
+              </div>
+
               {authError && (
-                <div className="p-3 bg-red-950/40 border border-red-500/30 text-red-200 text-xs">
+                <div className="p-3 bg-red-950/40 border border-red-500/30 text-red-200 text-xs text-left">
                   {authError}
                 </div>
               )}
 
-              <form onSubmit={handleSendOtp} className="space-y-6 text-left">
+              <form onSubmit={handleSendOtp} className="space-y-5 text-left">
                 <div className="field">
                   <label htmlFor="login-email" className="field-label">
-                    CORREO, TELÉFONO O # DE SOCIO
+                    CORREO ELECTRÓNICO (O TELÉFONO)
                   </label>
                   <input
                     id="login-email"
@@ -1021,17 +1157,71 @@ export default function MiMembresiaPage() {
                     required
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="tu@correo.com, 7441234567 o #000049"
-                    className="field-input"
+                    placeholder="tu@correo.com o tu teléfono"
+                    className="field-input text-xs sm:text-sm font-mono"
                   />
                 </div>
+
+                {loginMode === "password" && (
+                  <div className="field">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="login-password" className="field-label !mb-0">
+                        CONTRASEÑA
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginMode("direct");
+                          setAuthError(null);
+                        }}
+                        className="text-[10px] font-mono text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="login-password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        placeholder="Escribe tu contraseña"
+                        className="field-input pr-10 text-xs sm:text-sm font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-ash hover:text-white"
+                        aria-label="Mostrar u ocultar contraseña"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {loginMode === "direct" && (
+                  <p className="text-[11px] font-mono text-ash/90 leading-relaxed bg-coal/60 p-3 rounded-lg border border-bone/5">
+                    💡 Acceso sin contraseña: ingresa tu correo o teléfono registrado para abrir tu credencial de inmediato sin esperar códigos ni recordar números de socio.
+                  </p>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary w-full !min-h-[3.5rem] text-xs tracking-[0.25em]"
+                  className="btn btn-primary w-full !min-h-[3.5rem] text-xs tracking-[0.25em] font-mono font-bold uppercase flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10"
                 >
-                  {loading ? "BUSCANDO MEMBRESÍA..." : "ENTRAR A MI MEMBRESÍA"}
+                  {loading ? (
+                    "INGRESANDO..."
+                  ) : loginMode === "password" ? (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      INICIAR SESIÓN CON CONTRASEÑA
+                    </>
+                  ) : (
+                    "ENTRAR DIRECTO A MI MEMBRESÍA"
+                  )}
                 </button>
               </form>
 

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { getMemberRepository } from "@/lib/members/repository";
 import type { MemberStatus, MemberTier, PublicMember } from "@/lib/members/types";
 import { NextResponse, type NextRequest } from "next/server";
@@ -12,9 +13,11 @@ export async function POST(req: NextRequest) {
   }
 
   const rawIdentifier = String(body?.identifier || body?.email || "").trim();
+  const rawPassword = typeof body?.password === "string" ? body.password.trim() : "";
+
   if (!rawIdentifier) {
     return NextResponse.json(
-      { error: "Ingresa tu correo electrónico, teléfono o número de socio." },
+      { error: "Ingresa tu correo electrónico o teléfono registrado." },
       { status: 422 }
     );
   }
@@ -31,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (cleanEmail.includes("@")) {
       const { data } = await supabase
         .from("members")
-        .select("member_number, first_name, last_name, city, created_at, membership_level, qr_token, status")
+        .select("id, user_id, member_number, first_name, last_name, city, created_at, membership_level, qr_token, status, email, phone")
         .ilike("email", cleanEmail)
         .maybeSingle();
       memberRow = data;
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!memberRow && paddedNumber && digitsOnly.length <= 6) {
       const { data } = await supabase
         .from("members")
-        .select("member_number, first_name, last_name, city, created_at, membership_level, qr_token, status")
+        .select("id, user_id, member_number, first_name, last_name, city, created_at, membership_level, qr_token, status, email, phone")
         .eq("member_number", paddedNumber)
         .maybeSingle();
       memberRow = data;
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (!memberRow && last10Digits.length >= 8) {
       const { data } = await supabase
         .from("members")
-        .select("member_number, first_name, last_name, city, created_at, membership_level, qr_token, status, phone")
+        .select("id, user_id, member_number, first_name, last_name, city, created_at, membership_level, qr_token, status, email, phone")
         .ilike("phone", `%${last10Digits}`)
         .limit(1)
         .maybeSingle();
@@ -60,10 +63,81 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "No encontramos una membresía con ese dato. Verifica tu correo, teléfono o número de socio (#000001).",
+            "No encontramos ninguna membresía con ese correo o teléfono. Verifica tus datos o únete al Club Bacachá.",
         },
         { status: 404 }
       );
+    }
+
+    // Si el usuario proporcionó contraseña, validamos o configuramos su acceso
+    if (rawPassword) {
+      if (rawPassword.length < 6) {
+        return NextResponse.json(
+          { error: "La contraseña debe tener al menos 6 caracteres." },
+          { status: 400 }
+        );
+      }
+
+      const anonUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const anon = createAnonClient(anonUrl, anonKey);
+
+      // Intentar iniciar sesión con Supabase Auth
+      const { data: signData, error: signError } = await anon.auth.signInWithPassword({
+        email: memberRow.email,
+        password: rawPassword,
+      });
+
+      if (!signError && signData?.user) {
+        if (!memberRow.user_id) {
+          await supabase
+            .from("members")
+            .update({ user_id: signData.user.id })
+            .eq("id", memberRow.id);
+        }
+      } else {
+        // Si falló el inicio de sesión, verificar si el usuario de auth existe
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        const existingAuthUser = usersData?.users?.find(
+          (u) => u.email?.toLowerCase() === memberRow.email.toLowerCase()
+        );
+
+        if (!existingAuthUser) {
+          // El socio existe en Supabase pero aún no tenía cuenta de contraseña en Auth: la creamos con su contraseña elegida
+          const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+            email: memberRow.email,
+            password: rawPassword,
+            email_confirm: true,
+            user_metadata: {
+              member_id: memberRow.id,
+              member_number: memberRow.member_number,
+              first_name: memberRow.first_name,
+              last_name: memberRow.last_name,
+            },
+          });
+
+          if (createErr || !newUser?.user) {
+            return NextResponse.json(
+              { error: "No se pudo registrar la contraseña. Inténtalo de nuevo." },
+              { status: 500 }
+            );
+          }
+
+          await supabase
+            .from("members")
+            .update({ user_id: newUser.user.id })
+            .eq("id", memberRow.id);
+        } else {
+          // El usuario ya tiene cuenta en Auth pero la contraseña no coincidió
+          return NextResponse.json(
+            {
+              error:
+                "Contraseña incorrecta. Si no la recuerdas o aún no la habías configurado, entra con 'Acceso Rápido sin Contraseña' con tu correo.",
+            },
+            { status: 401 }
+          );
+        }
+      }
     }
 
     const member: PublicMember = {
